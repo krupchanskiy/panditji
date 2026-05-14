@@ -196,7 +196,135 @@
   .row-divider { background: rgba(40,55,45,0.08); }
   .event-rule  { border-color: rgba(40,55,45,0.10); }
 
-  /* ---------------- Ekadasi badge ---------------- */
+  /* ---------------- Ekadasi pill (4 variants) ---------------- */
+  .ek-pill {
+    position: relative;
+    border-radius: 18px;
+    padding: 14px 16px 14px 14px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    overflow: hidden;
+    backdrop-filter: blur(22px) saturate(140%);
+    -webkit-backdrop-filter: blur(22px) saturate(140%);
+  }
+  .ek-pill .ek-orb {
+    position: absolute;
+    right: -28px; bottom: -28px;
+    width: 100px; height: 100px;
+    border-radius: 50%;
+    opacity: 0.55;
+    pointer-events: none;
+  }
+  .ek-pill .ek-moon {
+    position: relative; flex: none;
+    width: 60px; height: 60px;
+    border-radius: 16px;
+    display: grid; place-items: center;
+    color: white;
+  }
+  .ek-pill .ek-content {
+    position: relative; flex: 1; min-width: 0;
+  }
+  .ek-pill .ek-eyebrow {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 10.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    font-weight: 800;
+  }
+  .ek-pill .ek-eyebrow .sep {
+    width: 3px; height: 3px; border-radius: 50%; opacity: 0.6;
+  }
+  .ek-pill .ek-eyebrow .sub { opacity: 0.65; font-weight: 700; }
+  .ek-pill .ek-body {
+    margin-top: 4px;
+    display: flex; align-items: baseline; gap: 6px;
+    font-size: 15px;
+    color: var(--ink-2);
+    font-weight: 600;
+  }
+  .ek-pill .ek-num {
+    font-size: 28px; font-weight: 800; line-height: 1;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.01em;
+  }
+  .ek-pill .ek-time {
+    font-size: 22px; font-weight: 800; line-height: 1;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.005em;
+  }
+  .ek-pill .ek-meta {
+    margin-top: 4px;
+    font-size: 11.5px;
+    color: var(--text-3);
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.005em;
+  }
+  .ek-pill .ek-cal-btn {
+    position: relative; flex: none;
+    width: 44px; height: 44px;
+    border-radius: 14px;
+    display: grid; place-items: center;
+    color: white;
+    opacity: 0.55;
+    transition: opacity .2s ease;
+  }
+  .ek-pill .ek-cal-btn:hover,
+  .ek-pill .ek-cal-btn:active { opacity: 1; }
+
+  /* Variant 1: Far (>2 days) — pale gold */
+  .ek-pill.ek-far {
+    background: linear-gradient(160deg, oklch(0.95 0.04 85 / 0.78), oklch(0.91 0.07 80 / 0.55));
+    border: 1px solid color-mix(in oklch, oklch(0.70 0.10 78) 28%, transparent);
+  }
+  .ek-pill.ek-far .ek-orb { background: radial-gradient(circle, oklch(0.85 0.10 80 / 0.55), transparent 65%); }
+  .ek-pill.ek-far .ek-moon { background: linear-gradient(160deg, oklch(0.82 0.085 80), oklch(0.62 0.115 75)); box-shadow: 0 4px 12px -4px oklch(0.65 0.12 75 / 0.45); }
+  .ek-pill.ek-far .ek-cal-btn { background: linear-gradient(160deg, oklch(0.86 0.07 80), oklch(0.70 0.10 75)); box-shadow: 0 4px 10px -6px oklch(0.65 0.12 75 / 0.35); }
+  .ek-pill.ek-far .ek-eyebrow { color: oklch(0.48 0.115 70); }
+  .ek-pill.ek-far .ek-eyebrow .sep { background: oklch(0.62 0.115 75); }
+  .ek-pill.ek-far .ek-num { color: oklch(0.55 0.115 75); }
+
+  /* Variant 2: Tomorrow — terra */
+  .ek-pill.ek-tomorrow {
+    background: linear-gradient(160deg, oklch(0.92 0.05 30 / 0.80), oklch(0.86 0.08 25 / 0.55));
+    border: 1px solid color-mix(in oklch, var(--terra) 32%, transparent);
+  }
+  .ek-pill.ek-tomorrow .ek-orb { background: radial-gradient(circle, oklch(0.78 0.14 28 / 0.55), transparent 65%); }
+  .ek-pill.ek-tomorrow .ek-moon { background: linear-gradient(160deg, var(--terra), var(--terra-deep)); box-shadow: 0 4px 12px -4px oklch(0.65 0.13 25 / 0.50); }
+  .ek-pill.ek-tomorrow .ek-cal-btn { background: linear-gradient(160deg, oklch(0.78 0.10 28), oklch(0.66 0.12 25)); box-shadow: 0 4px 10px -6px oklch(0.65 0.13 25 / 0.40); }
+  .ek-pill.ek-tomorrow .ek-eyebrow { color: var(--terra-deep); }
+  .ek-pill.ek-tomorrow .ek-eyebrow .sep { background: var(--terra); }
+  .ek-pill.ek-tomorrow .ek-num { color: oklch(0.62 0.13 26); }
+
+  /* Variant 3: Today — green */
+  .ek-pill.ek-today {
+    background: linear-gradient(160deg, oklch(0.92 0.06 150 / 0.78), oklch(0.85 0.09 150 / 0.55));
+    border: 1px solid color-mix(in oklch, oklch(0.58 0.10 150) 32%, transparent);
+  }
+  .ek-pill.ek-today .ek-orb { background: radial-gradient(circle, oklch(0.78 0.12 150 / 0.55), transparent 65%); }
+  .ek-pill.ek-today .ek-moon { background: linear-gradient(160deg, oklch(0.68 0.10 150), oklch(0.48 0.10 150)); box-shadow: 0 4px 12px -4px oklch(0.55 0.10 150 / 0.45); }
+  .ek-pill.ek-today .ek-cal-btn { background: linear-gradient(160deg, oklch(0.72 0.09 150), oklch(0.55 0.10 150)); box-shadow: 0 4px 10px -6px oklch(0.55 0.10 150 / 0.40); }
+  .ek-pill.ek-today .ek-eyebrow { color: oklch(0.40 0.10 150); }
+  .ek-pill.ek-today .ek-eyebrow .sep { background: oklch(0.55 0.10 150); }
+  .ek-pill.ek-today .ek-num { color: oklch(0.50 0.10 150); }
+
+  /* Variant 4: Yesterday — neutral white glass */
+  .ek-pill.ek-yesterday {
+    background: rgba(255,255,255,0.62);
+    border: 1px solid rgba(255,255,255,0.78);
+    box-shadow: 0 1px 0 rgba(255,255,255,0.9) inset, 0 1px 2px oklch(0.30 0.06 250 / 0.04);
+  }
+  .ek-pill.ek-yesterday .ek-orb { background: radial-gradient(circle, oklch(0.85 0.05 230 / 0.45), transparent 65%); }
+  .ek-pill.ek-yesterday .ek-moon { background: linear-gradient(160deg, oklch(0.55 0.05 250), oklch(0.38 0.05 250)); box-shadow: 0 4px 12px -4px oklch(0.30 0.06 250 / 0.40); }
+  .ek-pill.ek-yesterday .ek-cal-btn { background: linear-gradient(160deg, oklch(0.60 0.05 250), oklch(0.42 0.05 250)); box-shadow: 0 4px 10px -6px oklch(0.30 0.06 250 / 0.35); }
+  .ek-pill.ek-yesterday .ek-eyebrow { color: var(--ink-soft); }
+  .ek-pill.ek-yesterday .ek-eyebrow .sep { background: var(--ink-soft); }
+  .ek-pill.ek-yesterday .ek-time { color: var(--ink-2); }
+  .ek-pill.ek-yesterday .ek-body { color: var(--text-2); }
+
+  /* ---------------- Old ekadasi-icon (kept for legacy paths) ---------------- */
   .ekadasi-icon {
     background: linear-gradient(160deg, var(--terra), var(--terra-deep));
     box-shadow: 0 4px 12px -4px oklch(0.65 0.14 50 / 0.5);
@@ -254,6 +382,42 @@
 </style>
 </head>
 <body class="min-h-screen flex items-start justify-center md:py-10 md:px-4">
+
+<!-- Фазы Луны как SVG-symbols (переиспользуются через <use href="#moon-XX">) -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="moon-new" viewBox="0 0 24 24">
+      <circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.5"/>
+    </symbol>
+    <symbol id="moon-waxing-crescent" viewBox="0 0 24 24">
+      <circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.5"/>
+      <path d="M 12 3 A 9 9 0 0 1 12 21 A 5.5 9 0 0 0 12 3 Z" fill="currentColor"/>
+    </symbol>
+    <symbol id="moon-first-quarter" viewBox="0 0 24 24">
+      <circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.5"/>
+      <path d="M 12 3 A 9 9 0 0 1 12 21 L 12 3 Z" fill="currentColor"/>
+    </symbol>
+    <symbol id="moon-waxing-gibbous" viewBox="0 0 24 24">
+      <circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.5"/>
+      <path d="M 12 3 A 9 9 0 0 1 12 21 A 5.5 9 0 0 1 12 3 Z" fill="currentColor"/>
+    </symbol>
+    <symbol id="moon-full" viewBox="0 0 24 24">
+      <circle cx="12" cy="12" r="9" fill="currentColor"/>
+    </symbol>
+    <symbol id="moon-waning-gibbous" viewBox="0 0 24 24">
+      <circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.5"/>
+      <path d="M 12 3 A 9 9 0 0 0 12 21 A 5.5 9 0 0 0 12 3 Z" fill="currentColor"/>
+    </symbol>
+    <symbol id="moon-last-quarter" viewBox="0 0 24 24">
+      <circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.5"/>
+      <path d="M 12 3 A 9 9 0 0 0 12 21 L 12 3 Z" fill="currentColor"/>
+    </symbol>
+    <symbol id="moon-waning-crescent" viewBox="0 0 24 24">
+      <circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.5"/>
+      <path d="M 12 3 A 9 9 0 0 0 12 21 A 5.5 9 0 0 1 12 3 Z" fill="currentColor"/>
+    </symbol>
+  </defs>
+</svg>
 
 <div class="stage" id="stage"></div>
 
@@ -390,46 +554,101 @@
     db.functions.invoke('google-fetch').catch((e) => console.warn('google-fetch bg failed', e))
   }
 
-  /* Ближайшая экадаши: блок всегда виден.
-     - Близко (≤3 дня): «Завтра · паран 16 мая · 09:14–09:42»
-     - Далеко: «Через 13 дн · Падмини Экадаши · 27 мая» — без paran-окна. */
-  const ekadashiCard = (() => {
+  /* Плашка экадаши — 4 состояния (см. design_handoff_ekadashi_pill):
+       far       — экадаши через >1 дня (pale gold, «через N дней»)
+       tomorrow  — экадаши завтра (terra, «Завтра»)
+       today     — экадаши сегодня (green, название экадаши)
+       yesterday — вчера экадаши, сегодня паран (neutral, окно крупно) */
+  const ekPill = (() => {
     const ek = astroRes?.data?.upcoming_ekadashi
+    const prev = astroRes?.data?.prev_ekadashi
+    const panchanga = astroRes?.data?.today_panchanga
+    const todayDate = astroRes?.data?.today || today
+    if (!ek && !prev) return null
+
+    const fmtDate = new Intl.DateTimeFormat('ru-RU', { timeZone: tz, day: 'numeric', month: 'long' })
+    const fmtDateShort = new Intl.DateTimeFormat('ru-RU', { timeZone: tz, day: 'numeric', month: 'long' })
+    const fmtTime = new Intl.DateTimeFormat('ru-RU', { timeZone: tz, hour: '2-digit', minute: '2-digit', hour12: false })
+    const fmtWeekday = new Intl.DateTimeFormat('ru-RU', { timeZone: tz, weekday: 'long' })
+
+    /* Yesterday: вчера была экадаши, сегодня паран (двадаши) */
+    if (prev) {
+      const prevDate = new Date(prev.event_date + 'T00:00:00Z')
+      const todayD = new Date(todayDate + 'T00:00:00Z')
+      const daysSince = Math.round((todayD - prevDate) / 86400000)
+      if (daysSince === 1 && prev.paran_start_at) {
+        const ps = new Date(prev.paran_start_at)
+        const pe = prev.paran_end_at ? new Date(prev.paran_end_at) : null
+        const windowH = pe ? Math.round((pe - ps) / 3600000) : null
+        return {
+          state: 'yesterday',
+          paksha: panchanga?.paksha || '',
+          paranWindow: pe ? `${fmtTime.format(ps)} — ${fmtTime.format(pe)}` : `с ${fmtTime.format(ps)}`,
+          tithiNow: panchanga?.tithi_name || 'Двадаши',
+          windowHours: windowH,
+          moonPhase: pickMoonPhase(panchanga),
+        }
+      }
+    }
+
     if (!ek) return null
+
     const eventDate = ek.event_date
-    const todayDate = astroRes.data.today || today
     const diffDays = Math.round(
       (new Date(eventDate + 'T00:00:00Z').getTime() - new Date(todayDate + 'T00:00:00Z').getTime())
       / (24 * 3600 * 1000)
     )
-    const badge = diffDays === 0 ? 'Сегодня' : diffDays === 1 ? 'Завтра' : `Через ${diffDays} дн`
-    const fmtDate = new Intl.DateTimeFormat('ru-RU', { timeZone: tz, day: 'numeric', month: 'long' })
 
-    /* Красная плашка только если экадаши «горит» — сегодня или завтра.
-       На бóльших расстояниях — мягкая янтарная (информационная). */
-    const isImmediate = diffDays <= 1
-
-    if (diffDays > 3) {
-      const ekDateStr = fmtDate.format(new Date(eventDate + 'T12:00:00Z'))
-      return { name: ek.event_name, badge, isFar: true, isImmediate, ekDate: ekDateStr }
+    /* Today */
+    if (diffDays === 0) {
+      const paranWin = (ek.paran_start_at && ek.paran_end_at)
+        ? `${fmtTime.format(new Date(ek.paran_start_at))} — ${fmtTime.format(new Date(ek.paran_end_at))}`
+        : (ek.paran_start_at ? `с ${fmtTime.format(new Date(ek.paran_start_at))}` : '')
+      return {
+        state: 'today',
+        name: ek.event_name,
+        paranWindow: paranWin,
+        moonPhase: pickMoonPhase(panchanga),
+      }
     }
 
-    const paranStart = ek.paran_start_at
-    const paranEnd = ek.paran_end_at
-    if (!paranStart) return { name: ek.event_name, badge, isFar: false, isImmediate, paranDate: '—', paranWindow: '—' }
-    const fmtTime = new Intl.DateTimeFormat('ru-RU', { timeZone: tz, hour: '2-digit', minute: '2-digit', hour12: false })
-    const paranWindow = paranEnd
-      ? `${fmtTime.format(new Date(paranStart))}–${fmtTime.format(new Date(paranEnd))}`
-      : `с ${fmtTime.format(new Date(paranStart))}`
+    /* Tomorrow */
+    if (diffDays === 1) {
+      const paranTime = ek.paran_start_at ? fmtTime.format(new Date(ek.paran_start_at)) : ''
+      return {
+        state: 'tomorrow',
+        name: ek.event_name,
+        date: fmtDateShort.format(new Date(eventDate + 'T12:00:00Z')),
+        paranTime,
+        paksha: panchanga?.paksha || '',
+        moonPhase: pickMoonPhase(panchanga),
+      }
+    }
+
+    /* Far */
     return {
-      name: ek.event_name,
-      badge,
-      isFar: false,
-      isImmediate,
-      paranDate: fmtDate.format(new Date(paranStart)),
-      paranWindow,
+      state: 'far',
+      daysUntil: diffDays,
+      date: fmtDateShort.format(new Date(eventDate + 'T12:00:00Z')),
+      weekday: fmtWeekday.format(new Date(eventDate + 'T12:00:00Z')),
+      paksha: panchanga?.paksha || '',
+      moonPhase: pickMoonPhase(panchanga),
     }
   })()
+
+  /* Подбор фазы Луны по освещённости + пакше из панчанги.
+     gaurabda: paksha=Кришна (gaurabda's=0) — waxing (растущая Луна);
+               paksha=Шукла  (gaurabda's=1) — waning (убывающая). */
+  function pickMoonPhase(panchanga) {
+    if (!panchanga) return 'moon-waning-crescent'
+    const illum = Number(panchanga.moon_illumination || 0)
+    const waxing = panchanga.paksha === 'Кришна'  // см. примечание выше
+    if (illum < 5) return 'moon-new'
+    if (illum > 95) return 'moon-full'
+    if (illum < 40) return waxing ? 'moon-waxing-crescent' : 'moon-waning-crescent'
+    if (illum < 60) return waxing ? 'moon-first-quarter'   : 'moon-last-quarter'
+    return waxing ? 'moon-waxing-gibbous' : 'moon-waning-gibbous'
+  }
 
   /* Состояние экрана. */
   const STATE = {
@@ -442,7 +661,7 @@
     sleep,
     googleConnected,
     events,
-    ekadasi: ekadashiCard,
+    ekadasi: ekPill,
     vaishnavaToday: (astroRes?.data?.today_events ?? []).map(ev => ({
       type: ev.event_type,
       name: ev.event_name,
@@ -689,45 +908,61 @@
     return 'событий';
   }
 
-  function renderEkadasi(e) {
-    const badge = e.badge || 'Завтра';
-    /* Тон карточки: красная (terra) если экадаши сегодня/завтра, иначе мягкая янтарная. */
-    const accent = e.isImmediate ? 'terra' : 'amber';
-    const glassClass = accent === 'terra' ? 'glass-terra' : 'glass-amber';
-    const iconClass  = accent === 'terra' ? 'ekadasi-icon' : 'ekadasi-icon ekadasi-icon--amber';
-    const orbClass   = accent === 'terra' ? 'ekadasi-orb' : 'ekadasi-orb ekadasi-orb--amber';
-    const textClass  = accent === 'terra' ? 'c-terra-deep' : 'c-amber-deep';
-    const dotColor   = accent === 'terra' ? 'var(--terra)' : 'var(--amber)';
-    const iconColor  = accent === 'terra' ? 'var(--terra-deep)' : 'var(--amber-deep)';
+  function renderEkadasi(p) {
+    /* Универсальный рендер по 4 состояниям. p — описание плашки от ekPill-builder'а. */
+    const calBtn = `
+      <a href="/calendar.html" class="ek-cal-btn" aria-label="в календарь">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18"/><path d="M8 3v4M16 3v4"/>
+        </svg>
+      </a>`;
+    const moonSvg = `<svg width="40" height="40"><use href="#${esc(p.moonPhase || 'moon-waning-crescent')}"/></svg>`;
 
-    const detail = e.isFar
-      ? `<div class="c-text-2 text-[12px] mt-0.5 num font-medium">${esc(e.ekDate)}</div>`
-      : `<div class="c-text-2 text-[12px] mt-0.5 num font-medium">паран ${esc(e.paranDate)} · <span class="${textClass} font-bold">${esc(e.paranWindow)}</span></div>`;
+    let eyebrowSub = '';
+    let body = '';
+    let meta = '';
+    let cls = '';
+
+    if (p.state === 'far') {
+      cls = 'ek-far';
+      eyebrowSub = `${p.paksha || ''} пакша`.trim();
+      const dword = p.daysUntil === 1 ? 'день' : (p.daysUntil >= 2 && p.daysUntil <= 4 ? 'дня' : 'дней');
+      body = `<span>через</span><span class="ek-num">${p.daysUntil}</span><span>${dword}</span>`;
+      meta = `${esc(p.date)} · ${esc(p.weekday)}`;
+    } else if (p.state === 'tomorrow') {
+      cls = 'ek-tomorrow';
+      eyebrowSub = `${p.paksha || ''} пакша`.trim();
+      body = `<span style="font-size: 22px; font-weight: 800; color: var(--ink-2); letter-spacing: -0.01em;">Завтра</span>`;
+      meta = `${esc(p.name)} · ${esc(p.date)}${p.paranTime ? ` · паран послезавтра ${esc(p.paranTime)}` : ''}`;
+    } else if (p.state === 'today') {
+      cls = 'ek-today';
+      eyebrowSub = 'сегодня · пост';
+      body = `<span style="font-weight: 700; color: var(--ink-2); font-size: 16px;">${esc(p.name)}</span>`;
+      meta = p.paranWindow
+        ? `паран завтра <span style="color: oklch(0.40 0.10 150); font-weight: 700;">${esc(p.paranWindow)}</span>`
+        : '';
+    } else if (p.state === 'yesterday') {
+      cls = 'ek-yesterday';
+      eyebrowSub = 'вчера · паран';
+      body = `<span>прервать пост </span><span class="ek-time">${esc(p.paranWindow)}</span>`;
+      const tithi = p.tithiNow || 'Двадаши';
+      const wh = p.windowHours;
+      const whWord = wh ? `окно ≈ ${wh} ${wh === 1 ? 'час' : (wh >= 2 && wh <= 4 ? 'часа' : 'часов')}` : '';
+      meta = `сегодня · ${esc(tithi)}${whWord ? ' · ' + whWord : ''}`;
+    } else {
+      return '';
+    }
+
     return `
-      <div class="${glassClass} rounded-2xl mt-6 px-4 py-3.5 flex items-start gap-3 relative overflow-hidden">
-        <div class="${orbClass} absolute -right-6 -bottom-6 w-24 h-24 rounded-full opacity-50"></div>
-        <a href="/calendar.html" aria-label="Открыть календарь"
-           class="absolute top-2.5 right-2.5 z-10 w-8 h-8 rounded-lg grid place-items-center transition active:scale-95"
-           style="color: ${iconColor};">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/>
-            <path d="M3.5 10.5h17M8 3v4M16 3v4"/>
-          </svg>
-        </a>
-        <div class="${iconClass} relative flex-none w-9 h-9 rounded-xl grid place-items-center">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round">
-            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
-          </svg>
+      <div class="ek-pill ${cls} mt-6">
+        <div class="ek-orb"></div>
+        <div class="ek-moon">${moonSvg}</div>
+        <div class="ek-content">
+          <div class="ek-eyebrow"><span>Экадаши</span><span class="sep"></span><span class="sub">${eyebrowSub}</span></div>
+          <div class="ek-body">${body}</div>
+          <div class="ek-meta">${meta}</div>
         </div>
-        <div class="relative flex-1 pr-8">
-          <div class="flex items-center gap-2">
-            <span class="${textClass} text-[10px] tracking-eyebrow uppercase font-bold">${esc(badge)}</span>
-            <span class="w-1 h-1 rounded-full" style="background: ${dotColor};"></span>
-            <span class="${textClass} text-[10px] tracking-eyebrow uppercase font-semibold" style="opacity: 0.7;">${e.isFar ? 'экадаши' : 'пост'}</span>
-          </div>
-          <div class="c-ink-2 text-[15px] font-bold mt-0.5">${esc(e.name)}</div>
-          ${detail}
-        </div>
+        ${calBtn}
       </div>`;
   }
 

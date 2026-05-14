@@ -259,7 +259,15 @@ Deno.serve(async (req) => {
     })
   }
 
-  const [upcomingRes, todayRes] = await Promise.all([
+  // kind=brief (default): сегодня + ближайшая экадаши + предыдущая (для yesterday-state) +
+  // панчанга сегодня (для определения «вчера экадаши = сегодня двадаши»).
+  const sevenAgo = (() => {
+    const d = new Date(today + 'T00:00:00Z')
+    d.setUTCDate(d.getUTCDate() - 7)
+    return d.toISOString().slice(0, 10)
+  })()
+
+  const [upcomingRes, prevRes, todayRes, panchangaRes] = await Promise.all([
     supabase
       .from('vaishnava_calendar')
       .select('event_date, event_name, ekadashi_type, fasting_start_at, fasting_end_at, paran_start_at, paran_end_at, paran_type, paran_start_reason, paran_end_reason')
@@ -271,11 +279,28 @@ Deno.serve(async (req) => {
       .limit(1),
     supabase
       .from('vaishnava_calendar')
+      .select('event_date, event_name, paran_start_at, paran_end_at')
+      .eq('user_id', user.id)
+      .eq('location_id', loc.id)
+      .eq('event_type', 'ekadashi')
+      .gte('event_date', sevenAgo)
+      .lt('event_date', today)
+      .order('event_date', { ascending: false })
+      .limit(1),
+    supabase
+      .from('vaishnava_calendar')
       .select('event_type, event_name, description')
       .eq('user_id', user.id)
       .eq('location_id', loc.id)
       .eq('event_date', today)
       .in('event_type', ['appearance', 'disappearance', 'purnima', 'amavasya', 'caturmasya_start', 'caturmasya_end']),
+    supabase
+      .from('vaishnava_panchanga')
+      .select('tithi_name, tithi_index, paksha, masa_name, moon_illumination, moon_age_days')
+      .eq('user_id', user.id)
+      .eq('location_id', loc.id)
+      .eq('date', today)
+      .maybeSingle(),
   ])
   if (upcomingRes.error) return json({ error: upcomingRes.error.message }, 500)
   if (todayRes.error) return json({ error: todayRes.error.message }, 500)
@@ -284,6 +309,8 @@ Deno.serve(async (req) => {
     location: loc,
     today,
     upcoming_ekadashi: upcomingRes.data?.[0] ?? null,
+    prev_ekadashi: prevRes.data?.[0] ?? null,
+    today_panchanga: panchangaRes.data ?? null,
     today_events: todayRes.data ?? [],
   })
 })
