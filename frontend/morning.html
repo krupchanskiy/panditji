@@ -266,8 +266,8 @@
   const tz    = location.timezone
   const today = localDate(tz)
 
-  /* Список дел + отметки выполнения за сегодня + погода + статусы OAuth — параллельно. */
-  const [{ data: todoDefs }, { data: completions }, weatherRes, { data: oauthRows }] = await Promise.all([
+  /* Список дел + отметки + погода + статусы OAuth + утреннее сообщение — параллельно. */
+  const [{ data: todoDefs }, { data: completions }, weatherRes, { data: oauthRows }, messageRes] = await Promise.all([
     db.from('daily_todos')
       .select('id, todo_key, emoji, emoji_variant, label, sort_order')
       .eq('is_active', true)
@@ -277,6 +277,7 @@
       .eq('date', today),
     db.functions.invoke('weather'),
     db.from('oauth_tokens').select('provider, is_active'),
+    db.functions.invoke('morning-message'),
   ])
   const doneSet = new Set(completions.map((c) => c.todo_id))
   const temperature = weatherRes.error
@@ -378,9 +379,9 @@
   const STATE = {
     date:     formatHeaderDate(tz),
     location: { name: location.name, temperature },
-    panditjiMessage:
-      'Доброе утро, Ачинтья джи. Ночь оказалась дельной — Whoop говорит, готов на 78%, выше обычного. ' +
-      '<em>Уттара Бхадрапада</em> сегодня вяжет терпением: подходящий день читать без спешки.',
+    panditjiMessage: (messageRes.error || !messageRes.data?.content)
+      ? 'Доброе утро.'
+      : messageRes.data.content,
     whoopConnected,
     sleep,
     googleConnected,
