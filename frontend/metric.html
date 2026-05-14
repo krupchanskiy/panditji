@@ -7,10 +7,12 @@
 <script src="https://cdn.tailwindcss.com"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=EB+Garamond:ital,wght@0,400;0,500;1,400;1,500&display=swap" rel="stylesheet">
 <style>
   :root {
     --bg:        oklch(0.965 0.010 235);
+    --bg-deep:   oklch(0.93 0.018 240);
+    --hairline:  oklch(0.88 0.018 235);
     --ink:       oklch(0.32 0.060 250);
     --ink-2:     oklch(0.25 0.060 250);
     --ink-soft:  oklch(0.44 0.055 250);
@@ -22,50 +24,355 @@
     --sage:      oklch(0.74 0.065 225);
     --sage-deep: oklch(0.52 0.085 235);
     --gold:      oklch(0.76 0.060 290);
-    --gold-deep: oklch(0.50 0.10 70);
+    --gold-deep: oklch(0.50 0.10 295);
+
+    --zone-low:  oklch(0.72 0.10 28);
+    --zone-mid:  oklch(0.78 0.10 75);
+    --zone-high: oklch(0.72 0.10 155);
+
+    --stage-light: oklch(0.78 0.07 235);
+    --stage-deep:  oklch(0.40 0.08 245);
+    --stage-rem:   oklch(0.65 0.10 290);
+    --stage-awake: oklch(0.74 0.095 28);
   }
+
   html, body { min-height: 100vh; }
   body {
     font-family: 'Manrope', ui-sans-serif, sans-serif;
     color: var(--text);
     -webkit-font-smoothing: antialiased;
     background:
-      radial-gradient(80% 70% at 85% 5%,  oklch(0.85 0.05 250 / 0.32) 0%, transparent 75%),
-      radial-gradient(75% 65% at 8% 28%,  oklch(0.84 0.045 230 / 0.32) 0%, transparent 78%),
+      radial-gradient(80% 70% at 85% 5%,  oklch(0.85 0.05 250 / 0.20) 0%, transparent 75%),
+      radial-gradient(75% 65% at 8% 28%,  oklch(0.84 0.045 230 / 0.22) 0%, transparent 78%),
+      radial-gradient(85% 60% at 95% 80%, oklch(0.86 0.04 290 / 0.16) 0%, transparent 75%),
+      radial-gradient(70% 55% at 12% 100%, oklch(0.82 0.045 30 / 0.14) 0%, transparent 80%),
       linear-gradient(180deg, oklch(0.965 0.010 235), oklch(0.94 0.016 235));
     background-attachment: fixed;
   }
 
-  .num            { font-feature-settings: "tnum" 1; font-variant-numeric: tabular-nums; }
+  .font-serif-m { font-family: 'EB Garamond', Georgia, serif; }
+  .num          { font-feature-settings: "tnum" 1; font-variant-numeric: tabular-nums; }
   .tracking-eyebrow { letter-spacing: 0.12em; }
 
-  .c-ink-2        { color: var(--ink-2); }
-  .c-text-2       { color: var(--text-2); }
-  .c-text-3       { color: var(--text-3); }
-  .c-terra-deep   { color: var(--terra-deep); }
-  .c-sage-deep    { color: var(--sage-deep); }
-  .c-gold-deep    { color: var(--gold-deep); }
-
+  /* Glass surfaces */
   .glass {
-    background: rgba(255,255,255,0.55);
+    background: rgba(255,255,255,0.58);
     backdrop-filter: blur(22px) saturate(140%);
     -webkit-backdrop-filter: blur(22px) saturate(140%);
     border: 1px solid rgba(255,255,255,0.7);
     box-shadow:
       0 1px 0 rgba(255,255,255,0.9) inset,
       0 1px 2px oklch(0.30 0.06 250 / 0.05),
-      0 8px 24px -16px oklch(0.30 0.06 250 / 0.20);
+      0 6px 18px -14px oklch(0.30 0.06 250 / 0.20);
+  }
+  .glass-sage {
+    background: linear-gradient(160deg, oklch(0.90 0.05 225 / 0.72), oklch(0.86 0.06 230 / 0.55));
+    backdrop-filter: blur(18px) saturate(140%);
+    -webkit-backdrop-filter: blur(18px) saturate(140%);
+    border: 1px solid color-mix(in oklch, var(--sage-deep) 24%, transparent);
+  }
+  .glass-gold {
+    background: linear-gradient(160deg, oklch(0.91 0.05 290 / 0.68), oklch(0.85 0.07 285 / 0.52));
+    backdrop-filter: blur(18px) saturate(140%);
+    -webkit-backdrop-filter: blur(18px) saturate(140%);
+    border: 1px solid color-mix(in oklch, var(--gold) 32%, transparent);
+  }
+  .glass-ink {
+    background: linear-gradient(160deg, oklch(0.92 0.04 245 / 0.68), oklch(0.86 0.05 250 / 0.50));
+    backdrop-filter: blur(18px) saturate(140%);
+    -webkit-backdrop-filter: blur(18px) saturate(140%);
+    border: 1px solid color-mix(in oklch, var(--ink-soft) 26%, transparent);
   }
 
-  /* Полоска стадий сна. */
-  .stage-bar { display: flex; height: 12px; border-radius: 6px; overflow: hidden; }
-  .stage-bar > span { display: block; }
-  .stage-light { background: oklch(0.78 0.07 235); }
-  .stage-deep  { background: oklch(0.40 0.08 245); }
-  .stage-rem   { background: oklch(0.65 0.10 290); }
-  .stage-awake { background: oklch(0.74 0.095 28); }
+  /* Page header capsule */
+  .page-head {
+    margin: 18px 16px 8px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 14px 6px 6px;
+    border-radius: 999px;
+    background: rgba(255,255,255,0.65);
+    backdrop-filter: blur(16px) saturate(140%);
+    -webkit-backdrop-filter: blur(16px) saturate(140%);
+    border: 1px solid rgba(255,255,255,0.7);
+    box-shadow: 0 4px 14px -10px oklch(0.30 0.06 250 / 0.20);
+  }
+  .page-head .back-btn {
+    flex: none;
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.65);
+    border: 1px solid var(--hairline);
+    display: grid; place-items: center;
+    color: var(--ink-2);
+    transition: transform 0.15s ease;
+  }
+  .page-head .back-btn:active { transform: scale(0.95); }
+  .page-head .title {
+    font-family: 'EB Garamond', Georgia, serif;
+    font-size: 20px;
+    font-weight: 500;
+    color: var(--ink-2);
+    line-height: 1;
+    letter-spacing: -0.01em;
+  }
+  .page-head .meta {
+    margin-left: auto;
+    font-size: 11px;
+    color: var(--text-3);
+    font-weight: 500;
+  }
 
-  .row-divider { background: rgba(40,55,45,0.08); }
+  /* Hero number */
+  .hero-num {
+    font-size: 84px;
+    font-weight: 800;
+    line-height: 0.95;
+    letter-spacing: -0.04em;
+    color: var(--ink-2);
+    font-variant-numeric: tabular-nums;
+  }
+  .hero-num .unit { font-size: 28px; font-weight: 600; opacity: 0.55; letter-spacing: -0.01em; }
+  .hero-num.sleep { font-size: 64px; }
+
+  /* Zone pill */
+  .zone-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px 6px 10px;
+    border-radius: 999px;
+    background: rgba(255,255,255,0.55);
+    border: 1px solid;
+    font-size: 12.5px;
+    font-weight: 600;
+  }
+  .zone-pill .marker { width: 8px; height: 8px; border-radius: 50%; }
+  .zone-pill.low  { color: var(--zone-low);  border-color: color-mix(in oklch, var(--zone-low)  35%, transparent); }
+  .zone-pill.mid  { color: oklch(0.45 0.13 70);  border-color: color-mix(in oklch, var(--zone-mid) 45%, transparent); }
+  .zone-pill.high { color: oklch(0.40 0.11 155); border-color: color-mix(in oklch, var(--zone-high) 45%, transparent); }
+  .zone-pill.low  .marker { background: var(--zone-low); }
+  .zone-pill.mid  .marker { background: var(--zone-mid); }
+  .zone-pill.high .marker { background: var(--zone-high); }
+
+  /* Claude block */
+  .claude-block {
+    border-left: 2px solid color-mix(in oklch, var(--terra) 50%, transparent);
+    padding-left: 14px;
+    color: var(--text);
+    font-size: 14.5px;
+    line-height: 1.55;
+  }
+  .claude-block .eyebrow {
+    font-size: 10.5px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--terra-deep);
+    font-weight: 700;
+    margin-bottom: 6px;
+  }
+  .claude-block p { margin: 0; }
+
+  /* Section title */
+  .section-title {
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.10em;
+    text-transform: uppercase;
+    color: var(--text-2);
+  }
+
+  /* Range bar (внутри карточек компонентов) */
+  .range-bar {
+    position: relative;
+    height: 6px;
+    border-radius: 999px;
+    background: rgba(0,0,0,0.05);
+    border: 1px solid rgba(0,0,0,0.04);
+    overflow: visible;
+  }
+  .range-bar .fill {
+    position: absolute;
+    top: 0; bottom: 0;
+    border-radius: 999px;
+    background: linear-gradient(90deg, color-mix(in oklch, currentColor 65%, transparent), currentColor);
+    opacity: 0.55;
+  }
+  .range-bar .marker {
+    position: absolute;
+    top: 50%;
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    background: currentColor;
+    transform: translate(-50%, -50%);
+    box-shadow: 0 0 0 3px oklch(0.97 0.012 235), 0 1px 4px rgba(0,0,0,0.15);
+  }
+  .range-bar .tick-min, .range-bar .tick-max {
+    position: absolute;
+    top: -3px;
+    width: 1.5px; height: 12px;
+    background: currentColor;
+    opacity: 0.35;
+  }
+
+  /* Trend row (в блоке "Динамика") */
+  .trend-row {
+    display: grid;
+    grid-template-columns: 88px 1fr 90px;
+    gap: 12px;
+    align-items: center;
+    padding: 9px 0;
+  }
+  .trend-row + .trend-row {
+    border-top: 1px solid color-mix(in oklch, var(--hairline) 70%, transparent);
+  }
+  .trend-row .label {
+    font-size: 12.5px;
+    color: var(--text-2);
+    font-weight: 600;
+  }
+  .trend-row .label .span {
+    display: block;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-3);
+    margin-top: 1px;
+    font-weight: 600;
+  }
+  .trend-row .avg {
+    font-size: 12.5px;
+    text-align: right;
+    color: var(--text);
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+  .trend-row .avg .ext {
+    display: block;
+    font-size: 10.5px;
+    color: var(--text-3);
+    font-weight: 500;
+    margin-top: 1px;
+  }
+  .trend-line {
+    position: relative;
+    height: 24px;
+  }
+  .trend-line .axis {
+    position: absolute;
+    top: 50%; left: 0; right: 0;
+    height: 2px;
+    background: color-mix(in oklch, currentColor 25%, transparent);
+    border-radius: 999px;
+    transform: translateY(-50%);
+  }
+  .trend-line .tick {
+    position: absolute;
+    top: calc(50% - 6px);
+    width: 1.5px; height: 12px;
+    background: color-mix(in oklch, currentColor 55%, transparent);
+    border-radius: 1px;
+  }
+  .trend-line .today-dot {
+    position: absolute;
+    top: 50%;
+    width: 12px; height: 12px;
+    border-radius: 50%;
+    background: currentColor;
+    transform: translate(-50%, -50%);
+    box-shadow: 0 0 0 3px oklch(0.97 0.012 235), 0 1px 4px rgba(0,0,0,0.18);
+  }
+
+  /* Sparse note */
+  .sparse-note {
+    font-size: 12.5px;
+    color: var(--text-3);
+    background: rgba(255,255,255,0.45);
+    border: 1px dashed color-mix(in oklch, var(--text-3) 35%, transparent);
+    border-radius: 12px;
+    padding: 10px 12px;
+    line-height: 1.4;
+  }
+  .sparse-note b { color: var(--text-2); font-weight: 600; }
+
+  /* Sleep stacked bar */
+  .sleep-bar {
+    height: 64px;
+    display: flex;
+    border-radius: 14px;
+    overflow: hidden;
+    box-shadow:
+      0 1px 0 rgba(255,255,255,0.6) inset,
+      0 4px 16px -10px oklch(0.30 0.06 250 / 0.30);
+  }
+  .sleep-bar .seg {
+    height: 100%;
+    display: flex; align-items: flex-end; justify-content: flex-start;
+    padding: 6px 8px;
+    color: rgba(255,255,255,0.85);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    position: relative;
+  }
+  .sleep-bar .seg.light  { background: linear-gradient(180deg, color-mix(in oklch, var(--stage-light) 88%, white), var(--stage-light)); color: oklch(0.30 0.08 240); }
+  .sleep-bar .seg.deep   { background: linear-gradient(180deg, color-mix(in oklch, var(--stage-deep)  92%, white), var(--stage-deep)); }
+  .sleep-bar .seg.rem    { background: linear-gradient(180deg, color-mix(in oklch, var(--stage-rem)   88%, white), var(--stage-rem)); }
+  .sleep-bar .seg.awake  { background: linear-gradient(180deg, color-mix(in oklch, var(--stage-awake) 88%, white), var(--stage-awake)); color: oklch(0.35 0.12 25); }
+
+  .time-axis {
+    display: flex; justify-content: space-between;
+    margin-top: 6px;
+    font-size: 10.5px;
+    color: var(--text-3);
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+  }
+
+  .swatch {
+    display: inline-block;
+    width: 10px; height: 10px;
+    border-radius: 3px;
+    margin-right: 6px;
+    vertical-align: middle;
+  }
+
+  /* Comp-row (внутри Архитектуры ночи) */
+  .comp-row {
+    padding: 12px 0;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 8px 16px;
+    align-items: baseline;
+  }
+  .comp-row + .comp-row { border-top: 1px solid color-mix(in oklch, var(--hairline) 70%, transparent); }
+  .comp-row .name { font-size: 14px; font-weight: 600; color: var(--ink-2); }
+  .comp-row .desc { font-size: 11.5px; color: var(--text-3); margin-top: 2px; line-height: 1.35; grid-column: 1 / 2; }
+  .comp-row .val  { font-size: 17px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--ink-2); text-align: right; letter-spacing: -0.01em; }
+  .comp-row .val .u { font-size: 11px; font-weight: 500; opacity: 0.55; margin-left: 2px; }
+
+  /* Context block (тише всего, внизу) */
+  .context-block {
+    background: rgba(255,255,255,0.42);
+    border: 1px solid var(--hairline);
+    border-radius: 14px;
+    padding: 12px 14px;
+    font-size: 12px;
+    line-height: 1.55;
+    color: var(--text-2);
+  }
+  .context-block .h {
+    font-size: 10.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--text-3);
+    font-weight: 700;
+    margin-bottom: 6px;
+  }
+  .context-block b { color: var(--ink-2); }
 </style>
 </head>
 <body class="min-h-screen">
@@ -75,6 +382,54 @@
 <script type="module">
   import { db, requireAuth } from './js/db.js'
 
+  /* ---------- Helpers (declarations — hoisted) ---------- */
+  function esc(s) {
+    return String(s ?? '').replace(/[&<>"']/g, (c) =>
+      ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))
+  }
+  function ruNum(x, frac = 1) {
+    if (x == null || !Number.isFinite(Number(x))) return '—'
+    const n = Number(x)
+    if (frac === 0 || Number.isInteger(n) && frac > 0 === false) return String(Math.round(n))
+    return n.toFixed(frac).replace('.', ',')
+  }
+  function ruInt(x) {
+    if (x == null) return '—'
+    return String(Math.round(Number(x)))
+  }
+  function secsToHm(sec) {
+    if (sec == null) return '—'
+    const total = Math.round(Number(sec))
+    const h = Math.floor(total / 3600)
+    const m = Math.floor((total % 3600) / 60)
+    if (h === 0) return `${m} мин`
+    return `${h} ч ${m} мин`
+  }
+  function secsToHmShort(sec) {
+    if (sec == null) return '—'
+    const total = Math.round(Number(sec))
+    const h = Math.floor(total / 3600)
+    const m = Math.floor((total % 3600) / 60)
+    return `${h}:${String(m).padStart(2, '0')}`
+  }
+  function pctClamped(value, min, max) {
+    if (max === min) return 50
+    const p = ((value - min) / (max - min)) * 100
+    return Math.max(0, Math.min(100, Math.round(p * 10) / 10))
+  }
+  function formatDateRu(iso) {
+    if (!iso) return ''
+    const d = new Date(iso)
+    return new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'long' }).format(d)
+  }
+  function fmtTimeLocal(iso, tz) {
+    return new Intl.DateTimeFormat('ru-RU', {
+      timeZone: tz || 'Europe/Moscow',
+      hour: '2-digit', minute: '2-digit', hour12: false,
+    }).format(new Date(iso))
+  }
+
+  /* ---------- Boot ---------- */
   const user = await requireAuth()
   if (!user) throw new Error('redirected')
 
@@ -85,234 +440,467 @@
     throw new Error('bad type')
   }
 
-  const TITLES = {
-    recovery: 'Recovery',
-    sleep:    'Сон',
-    hrv:      'HRV',
-  }
-
+  const TITLES = { recovery: 'Recovery', sleep: 'Сон', hrv: 'HRV' }
   const root = document.getElementById('root')
-  root.innerHTML = renderShell('загружаем…')
+  root.innerHTML = renderShell(TITLES[type], '', `<div class="px-5 pt-6 text-[13px]" style="color: var(--text-3);">Загружаем…</div>`)
 
-  /* Запрос с querystring — supabase-js передаёт его в URL функции. */
   const { data, error } = await db.functions.invoke('metric-detail?type=' + type)
   if (error || !data) {
-    root.innerHTML = renderShell(`Не получилось загрузить данные: ${error?.message ?? 'unknown'}`)
+    root.innerHTML = renderShell(TITLES[type], '', `<div class="px-5 pt-6 text-[13px]" style="color: var(--terra-deep);">Не получилось загрузить: ${esc(error?.message ?? 'unknown')}</div>`)
     throw error
   }
 
-  if (type === 'recovery') root.innerHTML = renderRecovery(data)
-  else if (type === 'sleep')   root.innerHTML = renderSleep(data)
-  else if (type === 'hrv')     root.innerHTML = renderHrv(data)
+  let body = ''
+  if (type === 'recovery') body = renderRecovery(data)
+  else if (type === 'sleep')   body = renderSleep(data)
+  else if (type === 'hrv')     body = renderHrv(data)
 
-  /* ---------- Helpers (function declarations — хойстятся, доступны выше при первом вызове renderShell) ---------- */
-  function esc(s) {
-    return String(s ?? '').replace(/[&<>"']/g, (c) =>
-      ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))
-  }
+  const meta = type === 'sleep' ? `ночь ${formatNightRu(data)}` : formatDateRu(new Date().toISOString())
+  root.innerHTML = renderShell(TITLES[type], meta, body)
 
-  function secsToHm(sec) {
-    if (sec == null) return '—'
-    const h = Math.floor(sec / 3600)
-    const m = Math.floor((sec % 3600) / 60)
-    if (h === 0) return `${m} мин`
-    return `${h} ч ${m} мин`
-  }
-
-  function pct(x, total) {
-    if (!x || !total) return 0
-    return Math.round((x / total) * 100)
-  }
-
-  function renderShell(body) {
+  /* ---------- Shell ---------- */
+  function renderShell(title, meta, body) {
     return `
-      <header class="px-5 pt-6 pb-3 flex items-center gap-3">
-        <a href="/morning.html" class="w-10 h-10 rounded-full glass grid place-items-center active:scale-95 transition" aria-label="Назад">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--ink-2);">
-            <path d="M15 18l-6-6 6-6"/>
-          </svg>
+      <div class="page-head">
+        <a href="/morning.html" class="back-btn" aria-label="назад">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
         </a>
-        <h1 class="c-ink-2 text-[20px] font-bold tracking-tight">${esc(TITLES[type] || '')}</h1>
-      </header>
-      <main class="px-5 pb-10">${body}</main>`
+        <div class="title">${esc(title)}</div>
+        ${meta ? `<div class="meta num">${esc(meta)}</div>` : ''}
+      </div>
+      <main class="pb-10">${body}</main>`
   }
 
+  function formatNightRu(sleepData) {
+    if (!sleepData?.today?.bedtime_local) return formatDateRu(new Date().toISOString())
+    try {
+      // bedtime/wake local already в виде HH:MM; день берём из today_iso (если есть) или просто текущий
+      const today = new Date()
+      const yest = new Date(today); yest.setDate(today.getDate() - 1)
+      const fmt = (d) => new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'long' }).format(d)
+      return `${fmt(yest)} → ${fmt(today)}`
+    } catch { return formatDateRu(new Date().toISOString()) }
+  }
+
+  /* ---------- RECOVERY ---------- */
   function renderRecovery(d) {
     const t = d.today, tr = d.trends
-    const bandLabel = t.band === 'high' ? 'высокая' : t.band === 'mid' ? 'средняя' : 'низкая'
-    const bandColor = t.band === 'high' ? 'oklch(0.55 0.13 145)' : t.band === 'mid' ? 'oklch(0.74 0.13 80)' : 'oklch(0.60 0.18 25)'
+    const score = t.score
+    const zone = t.band || (score >= 67 ? 'high' : score >= 34 ? 'mid' : 'low')
+    const zoneLabel = zone === 'high' ? 'высокая зона · 67–100' : zone === 'mid' ? 'средняя зона · 34–66' : 'низкая зона · 0–33'
+    const hrvCount = tr?.hrv_7d?.count ?? 0
+    const hasPersonalRanges = hrvCount >= 7
 
-    return renderShell(`
-      <section class="glass rounded-2xl p-5 mb-4">
-        <div class="flex items-baseline gap-3">
-          <div class="c-ink-2 text-[56px] font-extrabold leading-none num tracking-tight">${t.score}<span class="text-[24px] opacity-55">%</span></div>
-          <div class="text-[13px] font-semibold uppercase tracking-eyebrow" style="color: ${bandColor};">${bandLabel} зона</div>
+    return `
+      <section class="px-5 pt-7 pb-5 relative">
+        <div class="flex items-end gap-3">
+          <div class="hero-num">${score}<span class="unit">%</span></div>
         </div>
-        <div class="c-text-2 text-[13px] mt-2">Готовность нервной системы и тела к нагрузкам сегодня.</div>
+        <div class="mt-3">
+          <span class="zone-pill ${zone}"><span class="marker"></span>${zoneLabel}</span>
+        </div>
+        <div class="mt-4 text-[13.5px] leading-snug" style="color: var(--text-2);">
+          Готовность нервной системы и тела к нагрузкам сегодня.
+        </div>
       </section>
 
-      <section class="glass rounded-2xl p-5 mb-4">
-        <div class="c-text-3 text-[10.5px] tracking-eyebrow uppercase font-semibold mb-2">Что значит сегодня</div>
-        <p class="c-ink-2 text-[14px] leading-[1.5]">${esc(d.explanation)}</p>
+      <section class="px-5 pb-5">
+        <div class="claude-block">
+          <div class="eyebrow">Что значит сегодня</div>
+          <p>${esc(d.explanation)}</p>
+        </div>
       </section>
 
-      <section class="glass rounded-2xl overflow-hidden mb-4">
-        <div class="px-4 py-3 c-text-3 text-[10.5px] tracking-eyebrow uppercase font-semibold">Из чего сложился балл</div>
-        ${rowRecovery('HRV', t.hrv_ms != null ? Math.round(t.hrv_ms) + ' мс' : '—', 'вариабельность ритма сердца')}
-        ${rowRecovery('Пульс покоя', t.resting_hr != null ? t.resting_hr + ' уд/мин' : '—', 'ЧСС в самой глубокой фазе сна')}
-        ${rowRecovery('Дыхание ночью', t.respiratory_rate != null ? t.respiratory_rate.toFixed(1) + ' /мин' : '—', 'частота во время сна')}
-        ${rowRecovery('SpO₂', t.spo2_pct != null ? t.spo2_pct.toFixed(1) + ' %' : '—', 'насыщение крови кислородом')}
-        ${rowRecovery('Темп. кожи', t.skin_temp_c != null ? t.skin_temp_c.toFixed(1) + ' °C' : '—', 'может отражать стресс или начало болезни')}
+      <section class="px-5 pb-5">
+        <div class="section-title mb-3">Из чего сложился балл</div>
+
+        ${recoveryBigCard({
+          label: 'HRV',
+          desc: 'вариабельность ритма сердца',
+          value: t.hrv_ms != null ? Math.round(t.hrv_ms) : null,
+          unit: 'мс',
+          color: 'sage-deep',
+          glassClass: 'glass-sage',
+          rangeMin: hasPersonalRanges ? tr.hrv_7d.min : 20,
+          rangeMax: hasPersonalRanges ? tr.hrv_7d.max : 60,
+          midLabel: hasPersonalRanges
+            ? `ваш 7-дн. ср. ${ruInt(tr.hrv_7d.avg)} мс`
+            : 'типичный для 40–50 лет',
+        })}
+
+        ${recoveryBigCard({
+          label: 'Пульс покоя',
+          desc: 'ЧСС в самой глубокой фазе сна',
+          value: t.resting_hr,
+          unit: 'уд/мин',
+          color: 'sage-deep',
+          glassClass: 'glass-sage',
+          rangeMin: hasPersonalRanges ? tr.rhr_7d.min : 50,
+          rangeMax: hasPersonalRanges ? tr.rhr_7d.max : 85,
+          midLabel: hasPersonalRanges
+            ? `ваш 7-дн. ср. ${ruInt(tr.rhr_7d.avg)} уд/мин`
+            : 'здоровый взрослый 50–85',
+        })}
+
+        <div class="glass rounded-2xl px-4 py-2">
+          ${recoveryMinorRow('Дыхание ночью', 'частота во время сна', t.respiratory_rate, '/мин', 1)}
+          ${recoveryMinorRow('SpO₂', 'насыщение крови кислородом', t.spo2_pct, '%', 1)}
+          ${recoveryMinorRow('Температура кожи', 'подсвечивается при отклонении', t.skin_temp_c, '°C', 1)}
+        </div>
       </section>
 
-      <section class="glass rounded-2xl p-5 mb-4">
-        <div class="c-text-3 text-[10.5px] tracking-eyebrow uppercase font-semibold mb-3">Динамика</div>
-        ${trendRow('Recovery, 7 дней', tr.recovery_7d, '%')}
-        ${trendRow('HRV, 7 дней', tr.hrv_7d, 'мс')}
-        ${trendRow('HRV, 30 дней', tr.hrv_30d, 'мс')}
-        ${trendRow('Пульс покоя, 7 дней', tr.rhr_7d, 'уд/мин')}
+      <section class="px-5 pb-5">
+        <div class="section-title mb-3">Динамика</div>
+        ${hasPersonalRanges ? `
+          <div class="glass rounded-2xl px-4 py-2">
+            ${trendRow({
+              label: 'HRV', period: '7 дней', primary: true, color: 'sage-deep',
+              today: t.hrv_ms, r: tr.hrv_7d, unit: 'мс',
+            })}
+            ${trendRow({
+              label: 'Recovery', period: '7 дней', color: 'text-3',
+              today: score, r: tr.recovery_7d, unit: '%',
+            })}
+            ${trendRow({
+              label: 'HRV', period: '30 дней', color: 'text-3',
+              today: t.hrv_ms, r: tr.hrv_30d, unit: 'мс',
+            })}
+            ${trendRow({
+              label: 'Пульс покоя', period: '7 дней', color: 'text-3',
+              today: t.resting_hr, r: tr.rhr_7d, unit: 'уд/мин',
+            })}
+          </div>
+        ` : `
+          <div class="sparse-note">
+            <b>Диапазон будет доступен через 7 дней наблюдений.</b><br>
+            Сейчас в базе один день — сравнивать не с чем. Полосы min/max и среднее появятся, как только наберётся неделя.
+          </div>
+        `}
       </section>
 
-      <section class="glass rounded-2xl p-5">
-        <div class="c-text-3 text-[10.5px] tracking-eyebrow uppercase font-semibold mb-2">Что такое Recovery</div>
-        <p class="c-text-2 text-[13px] leading-[1.5]">Whoop Recovery — суммарная оценка готовности дня (0-100%). Считается из HRV, пульса покоя, длительности сна, температуры кожи и дыхания за прошедшую ночь — сравнивается с вашими личными последними неделями. Зоны: 0-33 низкая (тело просит отдыха), 34-66 средняя, 67-100 высокая (готов к нагрузке).</p>
-      </section>
-    `)
+      <section class="px-5 pb-7">
+        <div class="context-block">
+          <div class="h">Что такое Recovery</div>
+          Whoop Recovery — суммарная оценка готовности дня (0–100%). Считается из HRV, пульса покоя, длительности сна, температуры кожи и дыхания за прошедшую ночь — сравнивается с личными последними неделями. Зоны: 0–33 низкая (тело просит отдыха), 34–66 средняя, 67–100 высокая (готов к нагрузке).
+        </div>
+      </section>`
   }
 
-  function rowRecovery(label, value, hint) {
+  function recoveryBigCard({ label, desc, value, unit, glassClass, rangeMin, rangeMax, midLabel }) {
+    const markerPos = value != null ? pctClamped(value, rangeMin, rangeMax) : 50
+    const showRange = value != null
     return `
-      <div class="px-4 py-3 border-t row-divider" style="border-color: rgba(40,55,45,0.08);">
+      <div class="${glassClass} rounded-2xl p-4 mb-2.5" style="color: var(--sage-deep);">
         <div class="flex items-baseline justify-between">
-          <span class="c-ink-2 text-[14px] font-semibold">${esc(label)}</span>
-          <span class="c-ink-2 text-[15px] font-bold num">${esc(value)}</span>
+          <div>
+            <div class="text-[13px] font-bold" style="color: var(--ink-2);">${esc(label)}</div>
+            <div class="text-[11px] mt-0.5" style="color: var(--text-3);">${esc(desc)}</div>
+          </div>
+          <div class="num text-[26px] font-extrabold tracking-tight" style="color: var(--ink-2);">${value != null ? value : '—'}<span class="text-[12px] font-semibold opacity-55"> ${esc(unit)}</span></div>
         </div>
-        <div class="c-text-3 text-[11.5px] mt-0.5">${esc(hint)}</div>
+        ${showRange ? `
+        <div class="mt-3" style="color: var(--sage-deep);">
+          <div class="range-bar">
+            <div class="fill" style="left: 0; right: 0;"></div>
+            <span class="tick-min" style="left: 0%;"></span>
+            <span class="tick-max" style="left: calc(100% - 1.5px);"></span>
+            <span class="marker" style="left: ${markerPos}%;"></span>
+          </div>
+          <div class="flex justify-between text-[10.5px] mt-1.5 font-semibold num" style="color: var(--text-3);">
+            <span>${rangeMin}${unit === 'мс' ? ' мс' : ''}</span>
+            <span style="color: var(--sage-deep);">${esc(midLabel)}</span>
+            <span>${rangeMax}${unit === 'мс' ? ' мс' : ''}</span>
+          </div>
+        </div>
+        ` : ''}
       </div>`
   }
 
-  function trendRow(label, r, unit) {
-    if (!r || r.count === 0) return `<div class="text-[13px] c-text-3 py-1">${esc(label)}: данных пока нет</div>`
+  function recoveryMinorRow(name, desc, value, unit, frac) {
+    if (value == null) return '' /* скрываем строку когда нет данных */
+    const valStr = ruNum(value, frac)
     return `
-      <div class="py-1.5 text-[13px] c-text-2 flex justify-between gap-3">
-        <span class="c-ink-2">${esc(label)}</span>
-        <span class="num">ср. ${r.avg} ${unit}, ${r.min}–${r.max} (n=${r.count})</span>
+      <div class="flex items-baseline justify-between py-2">
+        <div class="flex-1">
+          <div class="text-[13px] font-semibold" style="color: var(--ink-2);">${esc(name)}</div>
+          <div class="text-[11px]" style="color: var(--text-3);">${esc(desc)}</div>
+        </div>
+        <div class="num text-[15px] font-bold" style="color: var(--ink-2);">${valStr}<span class="text-[10.5px] font-medium opacity-55"> ${esc(unit)}</span></div>
+      </div>
+      <div class="h-px last:hidden" style="background: var(--hairline);"></div>`
+  }
+
+  function trendRow({ label, period, primary, color, today, r, unit }) {
+    if (!r || r.count < 7) return ''
+    const cssColor = color === 'sage-deep'  ? 'var(--sage-deep)'
+                   : color === 'gold-deep'  ? 'var(--gold-deep)'
+                   : color === 'ink-soft'   ? 'var(--ink-soft)'
+                   : 'var(--text-3)'
+    const todayPos = today != null ? pctClamped(today, r.min, r.max) : 50
+    const avg = ruNum(r.avg, unit === 'ч' ? 1 : 0)
+    const minS = ruNum(r.min, unit === 'ч' ? 1 : 0)
+    const maxS = ruNum(r.max, unit === 'ч' ? 1 : 0)
+    return `
+      <div class="trend-row" style="color: ${cssColor};">
+        <div class="label">${esc(label)}<span class="span">${esc(period)}</span></div>
+        <div class="trend-line">
+          <span class="axis"></span>
+          <span class="tick" style="left: 0;"></span>
+          <span class="tick" style="left: calc(100% - 1.5px);"></span>
+          <span class="today-dot" style="left: ${todayPos}%;"></span>
+        </div>
+        <div class="avg num">ср. ${avg}<span class="ext">${minS}–${maxS} ${esc(unit)}</span></div>
       </div>`
   }
 
+  /* ---------- SLEEP ---------- */
   function renderSleep(d) {
     const t = d.today, tr = d.trends
+    const inBed = t.in_bed_seconds ?? ((t.asleep_seconds ?? 0) + (t.awake_seconds ?? 0))
+    const lightP = inBed > 0 && t.light_seconds != null ? (t.light_seconds / inBed * 100).toFixed(1) : 0
+    const deepP  = inBed > 0 && t.deep_seconds  != null ? (t.deep_seconds  / inBed * 100).toFixed(1) : 0
+    const remP   = inBed > 0 && t.rem_seconds   != null ? (t.rem_seconds   / inBed * 100).toFixed(1) : 0
+    const awakeP = inBed > 0 && t.awake_seconds != null ? (t.awake_seconds / inBed * 100).toFixed(1) : 0
     const totalStages = (t.light_seconds ?? 0) + (t.deep_seconds ?? 0) + (t.rem_seconds ?? 0) + (t.awake_seconds ?? 0)
-    const segs = totalStages > 0 ? `
-      <div class="stage-bar">
-        <span class="stage-light" style="width: ${pct(t.light_seconds, totalStages)}%;"></span>
-        <span class="stage-deep"  style="width: ${pct(t.deep_seconds,  totalStages)}%;"></span>
-        <span class="stage-rem"   style="width: ${pct(t.rem_seconds,   totalStages)}%;"></span>
-        <span class="stage-awake" style="width: ${pct(t.awake_seconds, totalStages)}%;"></span>
-      </div>
-      <div class="flex justify-between text-[10.5px] c-text-3 mt-2">
-        <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-sm stage-light"></span>Light</span>
-        <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-sm stage-deep"></span>Deep</span>
-        <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-sm stage-rem"></span>REM</span>
-        <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-sm stage-awake"></span>Awake</span>
-      </div>` : ''
+    const stagePct = (sec) => totalStages > 0 && sec != null ? Math.round((sec / totalStages) * 100) : 0
+    const hasPersonalRanges = (tr?.asleep_hours_7d?.count ?? 0) >= 7
+    const hh = Math.floor((t.asleep_seconds ?? 0) / 3600)
+    const mm = Math.floor(((t.asleep_seconds ?? 0) % 3600) / 60)
 
-    return renderShell(`
-      <section class="glass rounded-2xl p-5 mb-4">
-        <div class="c-ink-2 text-[40px] font-extrabold leading-none num tracking-tight">${secsToHm(t.asleep_seconds)}</div>
-        <div class="c-text-2 text-[13px] mt-1">${esc(t.bedtime_local)} → ${esc(t.wake_local)} (${secsToHm(t.in_bed_seconds)} в кровати)</div>
-      </section>
-
-      <section class="glass rounded-2xl p-5 mb-4">
-        <div class="c-text-3 text-[10.5px] tracking-eyebrow uppercase font-semibold mb-2">Что значит сегодня</div>
-        <p class="c-ink-2 text-[14px] leading-[1.5]">${esc(d.explanation)}</p>
-      </section>
-
-      <section class="glass rounded-2xl p-5 mb-4">
-        <div class="c-text-3 text-[10.5px] tracking-eyebrow uppercase font-semibold mb-3">Архитектура ночи</div>
-        ${segs}
-        <div class="mt-4 space-y-1.5 text-[13px]">
-          ${stageRow('Light', t.light_seconds, totalStages, 'переходные фазы, лёгкий сон')}
-          ${stageRow('Deep', t.deep_seconds, totalStages, 'физическое восстановление, медленноволновый')}
-          ${stageRow('REM', t.rem_seconds, totalStages, 'обработка опыта, память')}
-          ${stageRow('Awake', t.awake_seconds, totalStages, 'время без сна в кровати')}
+    return `
+      <section class="px-5 pt-7 pb-5">
+        <div class="hero-num sleep num">${hh}<span class="unit"> ч </span>${mm}<span class="unit"> мин</span></div>
+        <div class="mt-3 text-[13px]" style="color: var(--text-2);">
+          <span class="num font-semibold">${esc(t.bedtime_local)} → ${esc(t.wake_local)}</span> · ${secsToHm(inBed)} в кровати
         </div>
       </section>
 
-      <section class="glass rounded-2xl overflow-hidden mb-4">
-        <div class="px-4 py-3 c-text-3 text-[10.5px] tracking-eyebrow uppercase font-semibold">Качество и контекст</div>
-        ${kvRow('Эффективность сна', t.sleep_efficiency_pct != null ? Math.round(t.sleep_efficiency_pct) + ' %' : '—', '% времени в кровати, проведённого спя')}
-        ${kvRow('Покрытие потребности', t.sleep_performance_pct != null ? Math.round(t.sleep_performance_pct) + ' %' : '—', 'сколько из нужного тебе вчера сна ты получил')}
-        ${kvRow('Регулярность', t.sleep_consistency_pct != null ? Math.round(t.sleep_consistency_pct) + ' %' : '—', 'насколько стабильно время отбоя и пробуждения')}
-        ${kvRow('Долг сна', t.sleep_debt_seconds != null ? secsToHm(t.sleep_debt_seconds) : '—', 'недоспанные часы, накопленные за последние ночи')}
-        ${kvRow('Циклы сна', t.sleep_cycle_count != null ? String(t.sleep_cycle_count) : '—', 'обычно 4-6 за здоровую ночь')}
-        ${kvRow('Пробуждения', t.disturbance_count != null ? String(t.disturbance_count) : '—', 'эпизоды бодрствования')}
-        ${kvRow('Дыхание ночью', t.respiratory_rate != null ? t.respiratory_rate.toFixed(1) + ' /мин' : '—', 'частота дыхания во сне')}
+      <section class="px-5 pb-5">
+        <div class="claude-block">
+          <div class="eyebrow">Что значит сегодня</div>
+          <p>${esc(d.explanation)}</p>
+        </div>
       </section>
 
-      <section class="glass rounded-2xl p-5 mb-4">
-        <div class="c-text-3 text-[10.5px] tracking-eyebrow uppercase font-semibold mb-3">Динамика</div>
-        ${trendRow('Длительность сна, 7 дней', tr.asleep_hours_7d, 'ч')}
-        ${trendRow('Эффективность, 7 дней', tr.efficiency_7d, '%')}
-        ${trendRow('Покрытие потребности, 7 дней', tr.performance_7d, '%')}
+      <section class="px-5 pb-5">
+        <div class="section-title mb-3">Архитектура ночи</div>
+        <div class="glass rounded-2xl p-4">
+          <div class="sleep-bar">
+            <div class="seg deep"   style="width: ${deepP}%;">${Number(deepP) > 8 ? 'deep' : ''}</div>
+            <div class="seg light"  style="width: ${lightP}%;">${Number(lightP) > 8 ? 'light' : ''}</div>
+            <div class="seg awake"  style="width: ${awakeP}%;">${Number(awakeP) > 8 ? 'awake' : ''}</div>
+            <div class="seg rem"    style="width: ${remP}%;">${Number(remP) > 8 ? 'rem' : ''}</div>
+          </div>
+          <div class="time-axis">
+            <span>${esc(t.bedtime_local)}</span>
+            <span style="opacity: 0.5;">в кровати ${secsToHm(inBed)}</span>
+            <span>${esc(t.wake_local)}</span>
+          </div>
+
+          <div class="mt-4">
+            ${stageBreakdown('light', 'Light', 'переходные фазы, лёгкий сон', t.light_seconds, stagePct(t.light_seconds))}
+            ${stageBreakdown('deep',  'Deep',  'физическое восстановление, медленноволновый', t.deep_seconds, stagePct(t.deep_seconds))}
+            ${stageBreakdown('rem',   'REM',   'обработка опыта, память', t.rem_seconds, stagePct(t.rem_seconds))}
+            ${stageBreakdown('awake', 'Awake', 'время без сна в кровати', t.awake_seconds, stagePct(t.awake_seconds))}
+          </div>
+        </div>
       </section>
 
-      <section class="glass rounded-2xl p-5">
-        <div class="c-text-3 text-[10.5px] tracking-eyebrow uppercase font-semibold mb-2">Что нужно знать про стадии</div>
-        <p class="c-text-2 text-[13px] leading-[1.5]">Здоровый сон взрослого: light 45-55%, deep 15-20%, REM 20-25%, awake до 5%. Deep тянется к началу ночи и отвечает за физическое восстановление и иммунитет. REM сосредоточен под утро, отвечает за память и эмоциональную регуляцию. С возрастом deep уменьшается, light растёт — это норма.</p>
+      <section class="px-5 pb-5">
+        <div class="section-title mb-3">Качество и контекст</div>
+
+        ${t.sleep_efficiency_pct != null ? `
+        <div class="glass-ink rounded-2xl p-4 mb-2.5">
+          <div class="flex items-baseline justify-between">
+            <div>
+              <div class="text-[13px] font-bold" style="color: var(--ink-2);">Эффективность</div>
+              <div class="text-[11px] mt-0.5" style="color: var(--text-3);">% времени в кровати, проведённого спя</div>
+            </div>
+            <div class="num text-[26px] font-extrabold tracking-tight" style="color: var(--ink-2);">${Math.round(t.sleep_efficiency_pct)}<span class="text-[12px] font-semibold opacity-55"> %</span></div>
+          </div>
+        </div>` : ''}
+
+        ${t.sleep_performance_pct != null ? `
+        <div class="glass-ink rounded-2xl p-4 mb-2.5">
+          <div class="flex items-baseline justify-between">
+            <div>
+              <div class="text-[13px] font-bold" style="color: var(--ink-2);">Покрытие потребности</div>
+              <div class="text-[11px] mt-0.5" style="color: var(--text-3);">сколько из нужного тебе вчера сна ты получил</div>
+            </div>
+            <div class="num text-[26px] font-extrabold tracking-tight" style="color: var(--ink-2);">${Math.round(t.sleep_performance_pct)}<span class="text-[12px] font-semibold opacity-55"> %</span></div>
+          </div>
+          ${t.sleep_needed_seconds ? `
+          <div class="mt-2 text-[11px]" style="color: var(--text-3);">
+            потребность ${secsToHm(t.sleep_needed_seconds)}${t.sleep_debt_seconds > 0 ? ` · долг ${secsToHm(t.sleep_debt_seconds)}` : ''}
+          </div>` : ''}
+        </div>` : ''}
+
+        <!-- sleep_debt > 0 как отдельная карточка (если есть) -->
+        ${t.sleep_debt_seconds > 0 ? `
+        <div class="glass-ink rounded-2xl p-4 mb-2.5">
+          <div class="flex items-baseline justify-between">
+            <div>
+              <div class="text-[13px] font-bold" style="color: var(--ink-2);">Долг сна</div>
+              <div class="text-[11px] mt-0.5" style="color: var(--text-3);">недоспанные часы за последние ночи</div>
+            </div>
+            <div class="num text-[20px] font-extrabold tracking-tight" style="color: var(--ink-2);">${secsToHm(t.sleep_debt_seconds)}</div>
+          </div>
+        </div>` : ''}
+
+        ${t.sleep_consistency_pct > 0 ? `
+        <div class="glass rounded-2xl px-4 py-2 mb-2.5">
+          <div class="flex items-baseline justify-between py-2">
+            <div class="flex-1">
+              <div class="text-[13px] font-semibold" style="color: var(--ink-2);">Регулярность</div>
+              <div class="text-[11px]" style="color: var(--text-3);">стабильность времени отбоя и пробуждения</div>
+            </div>
+            <div class="num text-[16px] font-bold" style="color: var(--ink-2);">${Math.round(t.sleep_consistency_pct)}<span class="text-[10.5px] font-medium opacity-55"> %</span></div>
+          </div>
+        </div>` : ''}
+
+        <div class="glass rounded-2xl px-4 py-1">
+          ${sleepKvRow('Циклы сна', 'обычно 4–6 за здоровую ночь', t.sleep_cycle_count, '', 0)}
+          ${sleepKvRow('Пробуждения', 'эпизоды бодрствования', t.disturbance_count, '', 0)}
+          ${sleepKvRow('Дыхание ночью', 'частота во время сна', t.respiratory_rate, '/мин', 1)}
+        </div>
       </section>
-    `)
+
+      <section class="px-5 pb-5">
+        <div class="section-title mb-2">Динамика</div>
+        ${hasPersonalRanges ? `
+          <div class="glass rounded-2xl px-4 py-2">
+            ${trendRow({ label: 'Длительность', period: '7 дней', color: 'ink-soft',
+              today: (t.asleep_seconds ?? 0) / 3600, r: tr.asleep_hours_7d, unit: 'ч' })}
+            ${trendRow({ label: 'Эффективность', period: '7 дней', color: 'text-3',
+              today: t.sleep_efficiency_pct, r: tr.efficiency_7d, unit: '%' })}
+            ${trendRow({ label: 'Покрытие', period: '7 дней', color: 'text-3',
+              today: t.sleep_performance_pct, r: tr.performance_7d, unit: '%' })}
+          </div>
+        ` : `
+          <div class="sparse-note">
+            <b>Тренды появятся через 7 дней наблюдений.</b><br>
+            Длительность, эффективность и покрытие потребности будут сравниваться с вашими предыдущими ночами.
+          </div>
+        `}
+      </section>
+
+      <section class="px-5 pb-7">
+        <div class="context-block">
+          <div class="h">Что нужно знать про стадии</div>
+          Здоровый сон взрослого: light 45–55%, deep 15–20%, REM 20–25%, awake до 5%. Deep тянется к началу ночи и отвечает за физическое восстановление и иммунитет. REM сосредоточен под утро, отвечает за память и эмоциональную регуляцию. С возрастом deep уменьшается, light растёт — это норма.
+        </div>
+      </section>`
   }
 
-  function stageRow(label, sec, total, hint) {
+  function stageBreakdown(key, label, desc, sec, percent) {
     if (sec == null) return ''
-    const p = total > 0 ? Math.round((sec / total) * 100) : 0
     return `
-      <div class="flex items-baseline justify-between">
+      <div class="comp-row">
         <div>
-          <span class="c-ink-2 font-semibold">${esc(label)}</span>
-          <span class="c-text-3 text-[11.5px] ml-1">${esc(hint)}</span>
+          <div class="name"><span class="swatch" style="background: var(--stage-${key});"></span>${esc(label)}</div>
+          <div class="desc">${esc(desc)}</div>
         </div>
-        <span class="c-ink-2 num font-semibold">${secsToHm(sec)} · ${p}%</span>
+        <div class="val">${secsToHmShort(sec)}<span class="u"> · ${percent}%</span></div>
       </div>`
   }
 
-  function kvRow(label, value, hint) {
+  function sleepKvRow(name, desc, value, unit, frac) {
+    if (value == null) return ''
+    const valStr = unit ? `${ruNum(value, frac)}<span class="text-[10.5px] font-medium opacity-55"> ${esc(unit)}</span>` : ruNum(value, frac)
     return `
-      <div class="px-4 py-3 border-t row-divider" style="border-color: rgba(40,55,45,0.08);">
-        <div class="flex items-baseline justify-between">
-          <span class="c-ink-2 text-[14px] font-semibold">${esc(label)}</span>
-          <span class="c-ink-2 text-[15px] font-bold num">${esc(value)}</span>
+      <div class="flex items-baseline justify-between py-2">
+        <div class="flex-1">
+          <div class="text-[13px] font-semibold" style="color: var(--ink-2);">${esc(name)}</div>
+          <div class="text-[11px]" style="color: var(--text-3);">${esc(desc)}</div>
         </div>
-        <div class="c-text-3 text-[11.5px] mt-0.5">${esc(hint)}</div>
-      </div>`
+        <div class="num text-[16px] font-bold" style="color: var(--ink-2);">${valStr}</div>
+      </div>
+      <div class="h-px last:hidden" style="background: var(--hairline);"></div>`
   }
 
+  /* ---------- HRV ---------- */
   function renderHrv(d) {
     const t = d.today, tr = d.trends
-    return renderShell(`
-      <section class="glass rounded-2xl p-5 mb-4">
-        <div class="c-ink-2 text-[56px] font-extrabold leading-none num tracking-tight">${t.hrv_ms != null ? Math.round(t.hrv_ms) : '—'}<span class="text-[20px] opacity-55"> мс</span></div>
-        <div class="c-text-2 text-[13px] mt-1">RMSSD за прошедшую ночь</div>
+    const today = t.hrv_ms != null ? Math.round(t.hrv_ms) : null
+    const c7 = tr?.hrv_7d?.count ?? 0
+    const hasPersonalRange = c7 >= 7
+
+    return `
+      <section class="px-5 pt-7 pb-5">
+        <div class="hero-num">${today != null ? today : '—'}<span class="unit"> мс</span></div>
+        <div class="mt-3 text-[13px]" style="color: var(--text-2);">RMSSD за прошедшую ночь</div>
       </section>
 
-      <section class="glass rounded-2xl p-5 mb-4">
-        <div class="c-text-3 text-[10.5px] tracking-eyebrow uppercase font-semibold mb-2">Что значит сегодня</div>
-        <p class="c-ink-2 text-[14px] leading-[1.5]">${esc(d.explanation)}</p>
+      <section class="px-5 pb-5">
+        <div class="claude-block">
+          <div class="eyebrow">Что значит сегодня</div>
+          <p>${esc(d.explanation)}</p>
+        </div>
       </section>
 
-      <section class="glass rounded-2xl p-5 mb-4">
-        <div class="c-text-3 text-[10.5px] tracking-eyebrow uppercase font-semibold mb-3">Личный диапазон</div>
-        ${trendRow('За 7 дней', tr.hrv_7d, 'мс')}
-        ${trendRow('За 14 дней', tr.hrv_14d, 'мс')}
-        ${trendRow('За 30 дней', tr.hrv_30d, 'мс')}
+      <section class="px-5 pb-5">
+        <div class="section-title mb-3">Личный диапазон</div>
+
+        ${hasPersonalRange ? `
+          <div class="glass-gold rounded-2xl p-4 mb-2.5" style="color: var(--gold-deep);">
+            <div class="flex items-baseline justify-between mb-2">
+              <div class="text-[12.5px] font-bold tracking-eyebrow uppercase" style="color: var(--gold-deep);">за 7 дней</div>
+              <div class="num text-[12.5px] font-semibold" style="color: var(--text-3);">сегодня <span class="font-bold" style="color: var(--ink-2);">${today} мс</span></div>
+            </div>
+            <div class="relative" style="height: 32px;">
+              <div class="range-bar" style="position: absolute; top: 50%; left: 0; right: 0; transform: translateY(-50%); height: 8px;">
+                <div class="fill" style="left: 0; right: 0;"></div>
+                <span class="tick-min" style="left: 0%; height: 16px; top: -4px;"></span>
+                <span class="tick-max" style="left: calc(100% - 1.5px); height: 16px; top: -4px;"></span>
+                <span class="marker" style="left: ${pctClamped(today, tr.hrv_7d.min, tr.hrv_7d.max)}%; width: 14px; height: 14px;"></span>
+              </div>
+            </div>
+            <div class="flex justify-between mt-1 text-[11.5px] font-semibold num" style="color: var(--text-3);">
+              <span>${ruInt(tr.hrv_7d.min)} мс</span>
+              <span style="color: var(--gold-deep);">ср. ${ruInt(tr.hrv_7d.avg)} мс</span>
+              <span>${ruInt(tr.hrv_7d.max)} мс</span>
+            </div>
+          </div>
+
+          ${hrvSecondaryCard('за 14 дней', tr.hrv_14d, today, 'gold-deep')}
+          ${hrvSecondaryCard('за 30 дней', tr.hrv_30d, today, 'text-3')}
+        ` : `
+          <div class="glass-gold rounded-2xl p-5 text-center">
+            <div class="text-[28px] font-serif-m italic" style="color: var(--gold-deep);">Соберём ещё неделю.</div>
+            <div class="mt-2 text-[13px] leading-snug" style="color: var(--text-2);">
+              Без личного диапазона значение ${today != null ? today + ' мс' : 'HRV'} трудно интерпретировать — оно становится осмысленным только в сравнении с вашими прошлыми ночами.
+            </div>
+            <div class="mt-3 inline-flex items-center gap-2 px-3 py-1.5 rounded-full" style="background: rgba(255,255,255,0.5); border: 1px solid color-mix(in oklch, var(--gold) 30%, transparent);">
+              <span class="text-[11px] font-semibold num" style="color: var(--gold-deep);">${c7} / 7 ночей</span>
+            </div>
+          </div>
+        `}
       </section>
 
-      <section class="glass rounded-2xl p-5">
-        <div class="c-text-3 text-[10.5px] tracking-eyebrow uppercase font-semibold mb-2">Что такое HRV</div>
-        <p class="c-text-2 text-[13px] leading-[1.5]">HRV — вариабельность интервалов между ударами сердца. Чем выше HRV, тем сильнее тонус парасимпатики (нерв «отдыха»). Снижается при стрессе, плохом сне, болезни, обезвоживании, перегрузке. RMSSD — наиболее распространённая мера HRV для оценки восстановления, измеряется в миллисекундах. Личная норма важнее любых усреднённых таблиц: следи за смещением своего собственного среднего, а не за абсолютным значением.</p>
-      </section>
-    `)
+      <section class="px-5 pb-7">
+        <div class="context-block">
+          <div class="h">Что такое HRV</div>
+          HRV — вариабельность интервалов между ударами сердца. Чем выше HRV, тем сильнее тонус парасимпатики (нерв «отдыха»). Снижается при стрессе, плохом сне, болезни, обезвоживании, перегрузке. RMSSD — наиболее распространённая мера HRV для оценки восстановления. <b>Личная норма важнее любых усреднённых таблиц.</b>
+        </div>
+      </section>`
+  }
+
+  function hrvSecondaryCard(periodLabel, r, today, accent) {
+    if (!r || r.count < 7) return ''
+    const accentVar = accent === 'gold-deep' ? 'var(--gold-deep)' : 'var(--text-3)'
+    return `
+      <div class="glass rounded-2xl p-4 mb-2.5" style="color: ${accentVar};">
+        <div class="flex items-baseline justify-between mb-2">
+          <div class="text-[12px] font-bold tracking-eyebrow uppercase" style="color: var(--text-2);">${esc(periodLabel)}</div>
+          <div class="num text-[12px] font-semibold" style="color: var(--text-3);">ср. ${ruInt(r.avg)} · ${ruInt(r.min)}–${ruInt(r.max)} мс</div>
+        </div>
+        <div class="trend-line">
+          <span class="axis"></span>
+          <span class="tick" style="left: 0;"></span>
+          <span class="tick" style="left: calc(100% - 1.5px);"></span>
+          <span class="today-dot" style="left: ${pctClamped(today, r.min, r.max)}%;"></span>
+        </div>
+      </div>`
   }
 </script>
 
