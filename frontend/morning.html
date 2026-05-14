@@ -250,10 +250,11 @@
   /* Профиль + текущая локация. Два запроса — не зависим от имён FK-связей. */
   const { data: profile, error: profileErr } = await db
     .from('user_profile')
-    .select('spiritual_name, short_name, current_location_id')
+    .select('spiritual_name, short_name, current_location_id, telegram_chat_id')
     .eq('id', user.id)
     .single()
   if (profileErr) throw profileErr
+  const telegramLinked = profile.telegram_chat_id != null
 
   const { data: location, error: locErr } = await db
     .from('locations')
@@ -396,6 +397,7 @@
       label:        t.label,
       done:         doneSet.has(t.id),
     })),
+    telegramLinked,
   };
 
   /* ---------- Helpers ---------- */
@@ -647,12 +649,31 @@
     const doneCount = s.todos.filter((t) => t.done).length;
 
     return `
-      <section class="px-5 mt-7 pb-10">
+      <section class="px-5 mt-7">
         <div class="flex items-baseline justify-between mb-3">
           <h2 class="c-ink-2 text-[17px] font-bold tracking-tight">Сегодня сделать</h2>
           <span id="todo-counter" class="c-text-3 text-[11px] font-semibold num">${doneCount} / ${s.todos.length}</span>
         </div>
         <div class="glass rounded-2xl overflow-hidden">${rows}</div>
+      </section>`;
+  }
+
+  function renderTelegramLink(s) {
+    if (s.telegramLinked) return '';
+    return `
+      <section class="px-5 mt-3">
+        <button data-action="link-telegram" class="glass rounded-2xl w-full p-4 flex items-center gap-3 text-left active:scale-[0.99] transition">
+          <span class="emoji-wrap" style="background: linear-gradient(160deg, oklch(0.92 0.04 220 / 0.85), oklch(0.86 0.06 220 / 0.7));">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="oklch(0.45 0.10 230)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M22 2 11 13"/><path d="m22 2-7 20-4-9-9-4Z"/>
+            </svg>
+          </span>
+          <span class="flex-1">
+            <span class="block c-ink-2 text-[14.5px] font-semibold">Привязать Telegram</span>
+            <span class="block c-text-2 text-[12px] mt-0.5 leading-snug">Диктуй встречи в бот — сам положу в Google Calendar.</span>
+          </span>
+          <span class="c-terra-deep text-[18px] font-bold">→</span>
+        </button>
       </section>`;
   }
 
@@ -664,7 +685,9 @@
       renderMessage(STATE) +
       renderSleep(STATE) +
       renderEvents(STATE) +
-      renderTodos(STATE);
+      renderTodos(STATE) +
+      renderTelegramLink(STATE) +
+      '<div class="pb-10"></div>';
   }
 
   function updateCounter() {
@@ -715,6 +738,21 @@
     window.location.href = data.auth_url
   }
 
+  async function startTelegramLink(btn) {
+    btn.disabled = true
+    btn.style.opacity = '0.6'
+    const { data, error } = await db.functions.invoke('telegram-link-init')
+    if (error || !data?.deep_link) {
+      console.error('telegram-link-init failed', error)
+      btn.disabled = false
+      btn.style.opacity = '1'
+      alert('Не получилось сгенерировать ссылку Telegram. Попробуй ещё раз.')
+      return
+    }
+    /* На мобиле deep-link открывает Telegram-приложение. */
+    window.location.href = data.deep_link
+  }
+
   document.addEventListener('click', (ev) => {
     const row = ev.target.closest('.todo-row');
     if (row) {
@@ -736,6 +774,11 @@
     const googleBtn = ev.target.closest('[data-action="connect-google"]');
     if (googleBtn) {
       startGoogleConnect(googleBtn);
+      return;
+    }
+    const tgBtn = ev.target.closest('[data-action="link-telegram"]');
+    if (tgBtn) {
+      startTelegramLink(tgBtn);
       return;
     }
     const burger = ev.target.closest('#burger');
