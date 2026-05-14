@@ -17,7 +17,7 @@ import sys
 from datetime import date
 from dateutil.relativedelta import relativedelta
 
-from calculator import calculate_events
+from calculator import calculate_events, calculate_panchanga
 from supabase_writer import SupabaseWriter
 
 
@@ -63,14 +63,27 @@ def main() -> int:
         for t, c in sorted(by_type.items()):
             print(f'    {t}: {c}')
 
+        # Панчанга + астро (per-day)
+        panchanga = calculate_panchanga(
+            start=today,
+            end=end,
+            lat=float(loc['lat']),
+            lon=float(loc['lon']),
+            timezone=loc['timezone'],
+            location_name=loc['name'],
+        )
+        print(f'  панчанга-строк: {len(panchanga)}')
+
         if dry_run:
             print('  DRY_RUN=1 — пропускаю запись')
         else:
             n = writer.upsert_events(user_id, loc['id'], events)
-            print(f'  UPSERT записей: {n}')
+            print(f'  UPSERT vaishnava_calendar: {n}')
+            n_p = writer.upsert_panchanga(user_id, loc['id'], panchanga)
+            print(f'  UPSERT vaishnava_panchanga: {n_p}')
             total_events += n
 
-    print(f'\nИтого: {total_events} записей')
+    print(f'\nИтого: {total_events} записей в календаре')
     return 0
 
 

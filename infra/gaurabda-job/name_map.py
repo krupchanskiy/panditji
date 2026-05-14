@@ -9,6 +9,8 @@
 Сигналом "не переведено" служит то, что event_name содержит латиницу.
 """
 
+from typing import Optional
+
 # Названия экадаши — 25 канонических + Падмини/Парама для адхика-масы
 EKADASHI_NAMES = {
     'Sat-tila Ekadasi':         'Шат-тила Экадаши',
@@ -183,3 +185,180 @@ def translate(name: str) -> str:
     if name in MAJOR_FESTIVALS:
         return MAJOR_FESTIVALS[name]
     return name
+
+
+# -------------------------------------------------------------------------
+# Подзаголовок к событию (курсивная подпись под названием в карточке дня)
+# -------------------------------------------------------------------------
+
+EVENT_SUBTITLES = {
+    'Gaura Purnima: Appearance of Sri Caitanya Mahaprabhu':
+        'основатель санкиртаны, явление в Майяпуре',
+    'Sri Krsna Janmastami: Appearance of Lord Sri Krsna':
+        'явление Верховного Господа во Вриндаване',
+    'Rama Navami: Appearance of Lord Sri Ramacandra':
+        'явление Господа Рамачандры в Айодхье',
+    'Nrsimha Caturdasi: Appearance of Lord Nrsimhadeva':
+        'явление Господа-Льва',
+    'Radhastami: Appearance of Srimati Radharani':
+        'явление Шримати Радхарани',
+    'Balarama Purnima: Appearance of Lord Balarama':
+        'явление старшего брата Кришны',
+    'Nityananda Trayodasi: Appearance of Sri Nityananda Prabhu':
+        'воплощение Шри Баларамы в эпоху Чайтаньи',
+    'Varaha Dvadasi: Appearance of Lord Varahadeva':
+        'явление Господа-Вепря',
+    'Vamana Dvadasi: Appearance of Lord Vamanadeva':
+        'явление Господа-Карлика',
+    'Ratha Yatra':                       'праздник колесниц Джаганнатхи',
+    'Go Puja. Go Krda. Govardhana Puja.': 'почитание коров и Холма Говардхана',
+    'Guru (Vyasa) Purnima':              'почитание духовного учителя',
+
+    'Srila Rupa Gosvami -- Appearance':         'старший из шести Госвами Вриндавана',
+    'Srila Rupa Gosvami -- Disappearance':      'старший из шести Госвами Вриндавана',
+    'Srila Sanatana Gosvami -- Appearance':     'наставник Рупы, автор «Хари-бхакти-виласы»',
+    'Srila Sanatana Gosvami -- Disappearance':  'наставник Рупы, автор «Хари-бхакти-виласы»',
+    'Srila Jiva Gosvami -- Appearance':         'племянник Рупы и Санатаны, теолог гаудия-сампрадаи',
+    'Srila Jiva Gosvami -- Disappearance':      'племянник Рупы и Санатаны, теолог гаудия-сампрадаи',
+    'Srila Raghunatha Bhatta Gosvami -- Appearance':     'один из шести Госвами Вриндавана',
+    'Srila Raghunatha Bhatta Gosvami -- Disappearance':  'один из шести Госвами Вриндавана',
+    'Srila Gopala Bhatta Gosvami -- Appearance':         'один из шести Госвами Вриндавана',
+    'Srila Gopala Bhatta Gosvami -- Disappearance':      'один из шести Госвами Вриндавана',
+    'Srila Raghunatha Dasa Gosvami -- Appearance':       'один из шести Госвами Вриндавана',
+    'Srila Raghunatha Dasa Gosvami -- Disappearance':    'один из шести Госвами Вриндавана',
+
+    'Srila Prabhupada -- Appearance':
+        'основатель ИСККОН, А.Ч. Бхактиведанта Свами',
+    'A.C. Bhaktivedanta Swami Srila Prabhupada -- Disappearance':
+        'основатель ИСККОН, уход в 1977 году',
+    'Srila Bhaktisiddhanta Sarasvati Thakura -- Appearance':
+        'духовный учитель Прабхупады, основатель Гаудия Матха',
+    'Srila Bhaktisiddhanta Sarasvati Thakura -- Disappearance':
+        'духовный учитель Прабхупады, основатель Гаудия Матха',
+    'Srila Bhaktivinoda Thakura -- Appearance':
+        'возродитель гаудия-вайшнавизма XIX века',
+    'Srila Bhaktivinoda Thakura -- Disappearance':
+        'возродитель гаудия-вайшнавизма XIX века',
+    'Srila Gaurakisora Dasa Babaji -- Disappearance':
+        'духовный учитель Бхактисиддханты',
+    'Srila Jagannatha Dasa Babaji -- Disappearance':
+        'духовный учитель Бхактивиноды',
+
+    'Srila Vrndavana Dasa Thakura -- Appearance':
+        'биограф Шри Чайтаньи Махапрабху',
+    'Srila Vrndavana Dasa Thakura -- Disappearance':
+        'биограф Шри Чайтаньи Махапрабху',
+    'Sri Madhavendra Puri -- Appearance':         'основатель Гаудия-сампрадаи',
+    'Sri Madhavendra Puri -- Disappearance':      'основатель Гаудия-сампрадаи',
+    'Sri Srinivasa Acarya -- Appearance':         'распространитель учения Рупы и Санатаны',
+    'Sri Srinivasa Acarya -- Disappearance':      'распространитель учения Рупы и Санатаны',
+    'Sri Advaita Acarya -- Appearance':           'спутник Чайтаньи, призвавший Господа в Кали-югу',
+    'Sri Advaita Acarya -- Disappearance':        'спутник Чайтаньи, призвавший Господа в Кали-югу',
+    'Sri Nityananda Prabhu -- Disappearance':     'спутник Чайтаньи, воплощение Баларамы',
+    'Sri Gadadhara Pandita -- Appearance':        'спутник Чайтаньи, воплощение Радхарани',
+    'Sri Gadadhara Pandita -- Disappearance':     'спутник Чайтаньи, воплощение Радхарани',
+    'Sri Visvanatha Cakravarti Thakura -- Appearance':       'комментатор Бхагаватам XVII века',
+    'Srila Visvanatha Cakravarti Thakura -- Disappearance':  'комментатор Бхагаватам XVII века',
+    'Srila Narottama Dasa Thakura -- Appearance':            'автор бхаджанов, ученик Локанатхи Госвами',
+    'Srila Narottama Dasa Thakura -- Disappearance':         'автор бхаджанов, ученик Локанатхи Госвами',
+    'Sri Ramanujacarya -- Appearance':            'основатель Шри-сампрадаи',
+    'Sri Ramanujacarya -- Disappearance':         'основатель Шри-сампрадаи',
+    'Sri Madhvacarya -- Disappearance':           'основатель Мадхва-сампрадаи',
+    'Sri Baladeva Vidyabhusana -- Disappearance': 'автор «Говинда-бхашьи»',
+    'Sri Srivasa Pandita -- Appearance':          'спутник Чайтаньи, в чьём доме проводилась санкиртана',
+    'Sri Srivasa Pandita -- Disappearance':       'спутник Чайтаньи, в чьём доме проводилась санкиртана',
+    'Sri Ramananda Raya -- Disappearance':        'духовный собеседник Чайтаньи',
+    'Sri Syamananda Prabhu -- Appearance':        'ученик Хридая Чайтаньи, проповедник в Ориссе',
+    'Sri Syamananda Prabhu -- Disappearance':     'ученик Хридая Чайтаньи, проповедник в Ориссе',
+    'Appearance of Radha Kunda, snana dana':      'явление пруда Радхи близ Говардхана',
+}
+
+
+def subtitle_for(name: str) -> Optional[str]:
+    """Возвращает курсивный подзаголовок к событию, если он известен.
+    Принимает оригинальное (английское) имя из gaurabda — даже после translate()."""
+    if not name:
+        return None
+    return EVENT_SUBTITLES.get(name)
+
+
+# -------------------------------------------------------------------------
+# Tithi / Masa / Naksatra — русская транслитерация
+# -------------------------------------------------------------------------
+
+TITHI_RU = {
+    'Pratipat':    'Пратипат',
+    'Dvitiya':     'Двитья',
+    'Tritiya':     'Тритья',
+    'Caturthi':    'Чатуртхи',
+    'Pancami':     'Панчами',
+    'Sasti':       'Шашти',
+    'Saptami':     'Саптами',
+    'Astami':      'Аштами',
+    'Navami':      'Навами',
+    'Dasami':      'Дашами',
+    'Ekadasi':     'Экадаши',
+    'Dvadasi':     'Двадаши',
+    'Trayodasi':   'Трайодаши',
+    'Caturdasi':   'Чатурдаши',
+    'Amavasya':    'Амавасья',
+    'Purnima':     'Пурнима',
+}
+
+MASA_RU = {
+    'Madhusudana':         'Мадхусудана',
+    'Trivikrama':          'Тривикрама',
+    'Vamana':              'Вамана',
+    'Sridhara':            'Шридхара',
+    'Hrsikesa':            'Хришикеша',
+    'Padmanabha':          'Падманабха',
+    'Damodara':            'Дамодара',
+    'Kesava':              'Кешава',
+    'Narayana':            'Нараяна',
+    'Madhava':             'Мадхава',
+    'Govinda':             'Говинда',
+    'Visnu':               'Вишну',
+    'Purusottama-adhika':  'Пурушоттама (адхика)',
+}
+
+NAKSATRA_RU = {
+    'Asvini':           'Ашвини',
+    'Bharani':          'Бхарани',
+    'Krittika':         'Криттика',
+    'Rohini':           'Рохини',
+    'Mrigasira':        'Мригашира',
+    'Ardra':            'Ардра',
+    'Punarvasu':        'Пунарвасу',
+    'Pusyami':          'Пушьями',
+    'Aslesa':           'Ашлеша',
+    'Magha':            'Магха',
+    'Purva-phalguni':   'Пурва-Пхалгуни',
+    'Uttara-phalguni':  'Уттара-Пхалгуни',
+    'Hasta':            'Хаста',
+    'Citra':            'Читра',
+    'Swati':            'Свати',
+    'Visakha':          'Вишакха',
+    'Anuradha':         'Анурадха',
+    'Jyestha':          'Джьештха',
+    'Mula':             'Мула',
+    'Purva-asadha':     'Пурва-Ашадха',
+    'Uttara-asadha':    'Уттара-Ашадха',
+    'Sravana':          'Шравана',
+    'Dhanista':         'Дханишта',
+    'Satabhisa':        'Шатабхиша',
+    'Purva-bhadra':     'Пурва-Бхадра',
+    'Uttara-bhadra':    'Уттара-Бхадра',
+    'Revati':           'Ревати',
+}
+
+
+def translate_tithi(name: str) -> Optional[str]:
+    return TITHI_RU.get(name)
+
+
+def translate_masa(name: str) -> Optional[str]:
+    return MASA_RU.get(name)
+
+
+def translate_naksatra(name: str) -> Optional[str]:
+    return NAKSATRA_RU.get(name)

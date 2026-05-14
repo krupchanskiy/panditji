@@ -49,8 +49,34 @@ class SupabaseWriter:
                 timeout=60,
             )
             if r.status_code >= 400:
-                # печатаем ответ для диагностики
-                sys.stderr.write(f'UPSERT failed [{r.status_code}]: {r.text[:1000]}\n')
+                sys.stderr.write(f'UPSERT vaishnava_calendar failed [{r.status_code}]: {r.text[:1000]}\n')
+                r.raise_for_status()
+            total += len(chunk)
+        return total
+
+    def upsert_panchanga(self, user_id: str, location_id: str, rows: List[Dict], chunk_size: int = 200) -> int:
+        """UPSERT per-day панчанги в vaishnava_panchanga."""
+        if not rows:
+            return 0
+        prepared = []
+        for r in rows:
+            row = dict(r)
+            row['user_id'] = user_id
+            row['location_id'] = location_id
+            prepared.append(row)
+
+        total = 0
+        for i in range(0, len(prepared), chunk_size):
+            chunk = prepared[i:i + chunk_size]
+            r = requests.post(
+                f'{self.url}/rest/v1/vaishnava_panchanga',
+                params={'on_conflict': 'user_id,location_id,date'},
+                headers=self.headers,
+                json=chunk,
+                timeout=60,
+            )
+            if r.status_code >= 400:
+                sys.stderr.write(f'UPSERT vaishnava_panchanga failed [{r.status_code}]: {r.text[:1000]}\n')
                 r.raise_for_status()
             total += len(chunk)
         return total

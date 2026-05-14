@@ -8,9 +8,9 @@ from typing import List, Dict, Optional
 import math
 
 import gaurabda
-from gaurabda import GCTimeZone
+from gaurabda import GCTimeZone, GCMoonData, GCStrings
 
-from name_map import translate
+from name_map import translate, subtitle_for, translate_tithi, translate_masa, translate_naksatra
 
 
 # Маппинг IANA-имён часовых поясов в формат gaurabda.
@@ -232,8 +232,148 @@ def calculate_events(
                 'paran_type': None,
                 'paran_start_reason': None,
                 'paran_end_reason': None,
-                'description': text if translate(text) != text else None,  # сохраняем оригинал, если перевели
+                'description': subtitle_for(text),
                 'calculated_by': CALCULATED_BY,
             })
 
     return events
+
+
+# =========================================================================
+# Панчанга + астро на каждый день
+# =========================================================================
+
+def _gctime_to_seconds(t) -> Optional[int]:
+    """gaurabda GCTime → секунды в локальном дне. None если не вычислено (-1:59:59)."""
+    if t.hour < 0:
+        return None
+    return t.hour * 3600 + t.min * 60 + t.sec
+
+
+def _time_to_iso(d: date, secs: Optional[int], tz_offset_hours: float) -> Optional[str]:
+    """Секунды → ISO timestamptz. None пропускается."""
+    if secs is None:
+        return None
+    return _hour_decimal_to_iso(d, secs / 3600.0, tz_offset_hours)
+
+
+def calculate_panchanga(
+    start: date,
+    end: date,
+    lat: float,
+    lon: float,
+    timezone: str,
+    location_name: str = '',
+) -> List[Dict]:
+    """Возвращает per-day панчангу + солнце/луну для (lat, lon, timezone)."""
+    GCTimeZone.LoadFile('')
+
+    loc = _build_location(location_name or 'loc', lat, lon, timezone)
+    tz_offset = loc.m_fTimezone
+    earth = loc.GetEarthData()
+
+    beg = gaurabda.GCGregorianDate()
+    beg.year = start.year
+    beg.month = start.month
+    beg.day = start.day
+    beg.hour = 12
+    beg.minute = 0
+    beg.second = 0
+
+    days_count = (end - start).days + 1
+    cal = gaurabda.TCalendar()
+    cal.CalculateCalendar(loc, beg, days_count)
+
+    rows: List[Dict] = []
+
+    for i in range(days_count):
+        day = cal.GetDay(i)
+        d_obj = day.date
+        d = date(d_obj.year, d_obj.month, d_obj.day)
+        ad = day.astrodata
+
+        # gaurabda nPaksa: 0=Кришна (как в дизайне), 1=Шукла.
+        # tithi_in_paksha: 1..15 в пределах пакши.
+        n_tithi = ad.nTithi  # 0..29
+        if ad.nPaksa == 0:
+            paksha_ru = 'Кришна'
+            tithi_in_paksha = n_tithi + 1
+        else:
+            paksha_ru = 'Шукла'
+            tithi_in_paksha = (n_tithi - 15) + 1
+        if tithi_in_paksha < 1: tithi_in_paksha = 1
+        if tithi_in_paksha > 15: tithi_in_paksha = 15
+
+        # Россыпь имён через name_map
+        try:
+            tithi_en = GCStrings.GetTithiName(n_tithi)
+        except Exception:
+            tithi_en = ''
+        tithi_ru = translate_tithi(tithi_en) or tithi_en or '—'
+
+        try:
+            masa_en = GCStrings.GetMasaName(ad.nMasa)
+        except Exception:
+            masa_en = ''
+        masa_ru = translate_masa(masa_en) or masa_en or '—'
+
+        try:
+            naks_en = GCStrings.GetNaksatraName(ad.nNaksatra)
+        except Exception:
+            naks_en = ''
+        naks_ru = translate_naksatra(naks_en) or naks_en or None
+
+        # Солнце
+        sun = ad.sun
+        sunrise_secs = _gctime_to_seconds(sun.rise)
+        sunset_secs  = _gctime_to_seconds(sun.set)
+        noon_secs    = _gctime_to_seconds(sun.noon)
+        length_secs  = _gctime_to_seconds(sun.length)
+
+        # Брахма мухурта = 96 минут до восхода
+        bm_secs = (sunrise_secs - 96 * 60) if sunrise_secs is not None else None
+
+        sunrise_iso = _time_to_iso(d, sunrise_secs, tz_offset)
+        sunset_iso  = _time_to_iso(d, sunset_secs, tz_offset)
+        noon_iso    = _time_to_iso(d, noon_secs, tz_offset)
+        bm_iso      = _time_to_iso(d, bm_secs, tz_offset) if bm_secs is not None else None
+
+        day_length_min = round(length_secs / 60) if length_secs else None
+
+        # Луна
+        moonrise_t, moonset_t = GCMoonData.CalcMoonTimes(earth, day.date, float(day.hasDST))
+        mr_secs = _gctime_to_seconds(moonrise_t)
+        ms_secs = _gctime_to_seconds(moonset_t)
+        moonrise_iso = _time_to_iso(d, mr_secs, tz_offset)
+        moonset_iso  = _time_to_iso(d, ms_secs, tz_offset)
+
+        # Возраст — день текущей пакши (как в дизайне: «12 д» в день Двадаши).
+        # nTithiElapse в gaurabda — процент завершения тити (0..100).
+        tithi_progress = float(ad.nTithiElapse or 0.0) / 100.0
+        moon_age = round(tithi_in_paksha - 1 + tithi_progress, 1)
+
+        # Освещённость — геометрически точно через msDistance (элонгация 0..360°).
+        elongation_deg = float(ad.msDistance or 0.0) % 360.0
+        moon_illum = round((1.0 - math.cos(math.radians(elongation_deg))) / 2.0 * 100.0, 1)
+
+        rows.append({
+            'date': d.isoformat(),
+            'tithi_index': tithi_in_paksha,
+            'tithi_name': tithi_ru,
+            'paksha': paksha_ru,
+            'masa_name': masa_ru,
+            'gaurabda_year': ad.nGaurabdaYear,
+            'naksatra_name': naks_ru,
+            'brahma_muhurta_at': bm_iso,
+            'sunrise_at': sunrise_iso,
+            'noon_at': noon_iso,
+            'sunset_at': sunset_iso,
+            'day_length_min': day_length_min,
+            'moonrise_at': moonrise_iso,
+            'moonset_at': moonset_iso,
+            'moon_age_days': moon_age,
+            'moon_illumination': moon_illum,
+            'calculated_by': CALCULATED_BY,
+        })
+
+    return rows
