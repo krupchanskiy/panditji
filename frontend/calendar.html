@@ -9,31 +9,821 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=EB+Garamond:ital,wght@0,400;0,500;1,400;1,500&display=swap" rel="stylesheet">
 <style>
+  :root {
+    --bg:        oklch(0.965 0.010 235);
+    --hairline:  oklch(0.88 0.018 235);
+    --ink:       oklch(0.32 0.060 250);
+    --ink-2:     oklch(0.25 0.060 250);
+    --ink-soft:  oklch(0.44 0.055 250);
+    --text:      oklch(0.27 0.030 245);
+    --text-2:    oklch(0.50 0.022 240);
+    --text-3:    oklch(0.62 0.015 240);
+    --terra:     oklch(0.74 0.095 28);
+    --terra-deep:oklch(0.60 0.115 25);
+    --terra-soft:oklch(0.93 0.035 35);
+    --sage:      oklch(0.74 0.065 225);
+    --sage-deep: oklch(0.52 0.085 235);
+    --gold:      oklch(0.78 0.090 75);
+    --gold-deep: oklch(0.55 0.115 70);
+    --lav:       oklch(0.76 0.060 290);
+    --lav-deep:  oklch(0.50 0.10 295);
+  }
+  html, body { min-height: 100vh; }
   body {
     font-family: 'Manrope', ui-sans-serif, sans-serif;
+    color: var(--text);
+    -webkit-font-smoothing: antialiased;
     background:
       radial-gradient(80% 70% at 85% 5%,  oklch(0.85 0.05 250 / 0.32) 0%, transparent 75%),
+      radial-gradient(75% 65% at 8% 28%,  oklch(0.84 0.045 230 / 0.32) 0%, transparent 78%),
+      radial-gradient(85% 60% at 95% 80%, oklch(0.86 0.04 290 / 0.22) 0%, transparent 75%),
       linear-gradient(180deg, oklch(0.965 0.010 235), oklch(0.94 0.016 235));
+    background-attachment: fixed;
+  }
+  .font-serif-m { font-family: 'EB Garamond', Georgia, serif; }
+  .num { font-feature-settings: "tnum" 1; font-variant-numeric: tabular-nums; }
+  .tracking-eyebrow { letter-spacing: 0.12em; }
+
+  .stage {
+    width: 100%;
+    max-width: 380px;
     min-height: 100vh;
+    position: relative;
+    margin: 0 auto;
+    background:
+      radial-gradient(120% 60% at 50% 0%, oklch(0.975 0.010 235) 0%, oklch(0.96 0.012 235 / 0.65) 60%, transparent 100%),
+      linear-gradient(180deg, oklch(0.975 0.010 235) 0%, oklch(0.95 0.016 235) 100%);
+    padding-bottom: 60px;
+    overflow-x: hidden;
   }
-  .glass {
+  @media (min-width: 481px) {
+    .stage {
+      margin-top: 24px;
+      margin-bottom: 24px;
+      border-radius: 32px;
+      min-height: 920px;
+      overflow: hidden;
+      box-shadow:
+        0 30px 60px -28px oklch(0.30 0.06 250 / 0.25),
+        0 8px 24px -12px oklch(0.30 0.06 250 / 0.14);
+    }
+  }
+
+  /* TOPBAR */
+  .topbar {
+    position: relative; z-index: 1;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 20px 12px; gap: 12px;
+  }
+  .topbar .back-btn, .topbar .icon-btn {
+    width: 32px; height: 32px;
+    border-radius: 50%;
     background: rgba(255,255,255,0.6);
-    backdrop-filter: blur(22px) saturate(140%);
-    border: 1px solid rgba(255,255,255,0.7);
-    box-shadow: 0 1px 0 rgba(255,255,255,0.7) inset;
+    border: 1px solid var(--hairline);
+    display: grid; place-items: center;
+    color: var(--ink-2);
+    flex: none;
+    cursor: pointer;
+    transition: transform 100ms;
   }
+  .topbar .icon-btn:active, .topbar .back-btn:active { transform: scale(0.94); }
+  .topbar .month {
+    font-family: 'EB Garamond', Georgia, serif;
+    font-size: 22px; font-weight: 500; color: var(--ink-2);
+    letter-spacing: -0.005em; line-height: 1;
+    min-width: 80px; text-align: center;
+  }
+  .topbar .month .yr {
+    margin-left: 4px; color: var(--text-3); font-size: 18px;
+  }
+
+  /* LOCATION pill */
+  .loc-row {
+    position: relative; z-index: 1;
+    margin: 4px 20px 4px;
+    display: flex; align-items: center; gap: 8px;
+    padding: 7px 12px; border-radius: 999px;
+    background: rgba(255,255,255,0.45);
+    border: 1px solid var(--hairline);
+    backdrop-filter: blur(12px);
+    width: fit-content;
+    cursor: pointer;
+    transition: transform 100ms;
+  }
+  .loc-row:active { transform: scale(0.98); }
+  .loc-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--terra); box-shadow: 0 0 6px var(--terra); flex: none; }
+  .loc-name { font-size: 12.5px; font-weight: 700; color: var(--ink-2); letter-spacing: -0.005em; }
+  .loc-meta { font-size: 11px; color: var(--text-3); font-weight: 600; font-variant-numeric: tabular-nums; letter-spacing: 0.01em; }
+  .loc-chev { color: var(--text-3); margin-left: 2px; }
+
+  /* DOW */
+  .dow-row { position: relative; z-index: 1; display: grid; grid-template-columns: repeat(7, 1fr); padding: 8px 14px 4px; gap: 2px; }
+  .dow { text-align: center; font-size: 10.5px; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.10em; font-weight: 700; padding: 4px 0; }
+  .dow.we { color: var(--terra-deep); }
+
+  /* GRID */
+  .cal { position: relative; z-index: 1; display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; padding: 0 14px 8px; }
+  .cell {
+    aspect-ratio: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    position: relative; border-radius: 12px;
+    font-variant-numeric: tabular-nums; color: var(--ink-2);
+    font-size: 15px; font-weight: 600; letter-spacing: -0.005em;
+    cursor: pointer;
+    transition: transform 100ms;
+  }
+  .cell:active { transform: scale(0.93); }
+  .cell.muted { color: var(--text-3); opacity: 0.4; font-weight: 500; }
+  .cell.we { color: var(--terra-deep); }
+  .cell.today { color: var(--terra-deep); font-weight: 800; }
+  .cell.selected { background: var(--ink-2); color: white; box-shadow: 0 4px 14px -8px oklch(0.30 0.06 250 / 0.55); font-weight: 700; }
+  .cell.today.selected { color: white; }
+  .cell.ekadasi { background: linear-gradient(160deg, var(--terra), oklch(0.66 0.13 25)); color: white; font-weight: 700; box-shadow: 0 4px 10px -6px oklch(0.65 0.12 28 / 0.40); }
+  .cell.holiday { background: linear-gradient(160deg, var(--gold), oklch(0.68 0.115 70)); color: white; font-weight: 700; box-shadow: 0 4px 10px -6px oklch(0.65 0.12 75 / 0.40); }
+  .cell .dot {
+    position: absolute; bottom: 6px; left: 50%; transform: translateX(-50%);
+    width: 4px; height: 4px; border-radius: 50%; background: var(--lav-deep);
+  }
+  .cell.selected .dot, .cell.ekadasi .dot, .cell.holiday .dot { background: rgba(255,255,255,0.85); }
+
+  /* Legend */
+  .legend {
+    position: relative; z-index: 1;
+    display: flex; flex-wrap: wrap; gap: 10px 14px; justify-content: center;
+    padding: 8px 20px 6px;
+    font-size: 10.5px; color: var(--text-3); font-weight: 600; letter-spacing: 0.02em;
+  }
+  .legend .swatch { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; vertical-align: middle; }
+  .legend .swatch.ek { background: linear-gradient(160deg, var(--terra), oklch(0.66 0.13 25)); }
+  .legend .swatch.hol { background: linear-gradient(160deg, var(--gold), oklch(0.68 0.115 70)); }
+  .legend .swatch.fest { background: var(--lav-deep); }
+
+  .divider { position: relative; z-index: 1; height: 1px; margin: 12px 22px; background: var(--hairline); }
+
+  /* Selected-day hero */
+  .sel-card {
+    position: relative; z-index: 1;
+    margin: 6px 16px 10px;
+    padding: 14px 16px 16px; border-radius: 18px;
+    background: rgba(255,255,255,0.62);
+    border: 1px solid rgba(255,255,255,0.75);
+    backdrop-filter: blur(18px) saturate(140%);
+    box-shadow: 0 1px 0 rgba(255,255,255,0.9) inset, 0 4px 14px -10px oklch(0.30 0.06 250 / 0.18);
+  }
+  .sel-card .eyebrow {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.14em;
+    color: var(--text-3); font-weight: 700;
+  }
+  .sel-card .pill {
+    padding: 2px 8px; border-radius: 999px;
+    background: oklch(0.92 0.05 250 / 0.7);
+    color: var(--ink-soft);
+    border: 1px solid color-mix(in oklch, var(--ink-soft) 22%, transparent);
+    letter-spacing: 0.08em; font-size: 9.5px;
+  }
+  .sel-card .date-big {
+    font-family: 'EB Garamond', Georgia, serif;
+    font-size: 32px; font-weight: 500; color: var(--ink-2);
+    letter-spacing: -0.01em; margin-top: 4px; line-height: 1.05;
+  }
+  .sel-card .tithi-row {
+    display: flex; flex-wrap: wrap; gap: 8px 14px; margin-top: 10px;
+    font-size: 12.5px; color: var(--text-2);
+  }
+  .sel-card .tithi-row .item .l { display: block; font-size: 10px; text-transform: uppercase; letter-spacing: 0.10em; color: var(--text-3); font-weight: 700; margin-bottom: 1px; }
+  .sel-card .tithi-row .item .v { color: var(--ink-2); font-weight: 700; }
+
+  /* Paran */
+  .paran {
+    margin: 0 16px 8px; padding: 10px 14px; border-radius: 14px;
+    background: linear-gradient(160deg, oklch(0.92 0.05 30 / 0.78), oklch(0.88 0.07 25 / 0.55));
+    border: 1px solid color-mix(in oklch, var(--terra) 30%, transparent);
+    display: flex; align-items: center; gap: 12px;
+  }
+  .paran .ic {
+    flex: none; width: 28px; height: 28px; border-radius: 50%;
+    background: linear-gradient(160deg, var(--terra), var(--terra-deep));
+    color: white; display: grid; place-items: center;
+    box-shadow: 0 4px 10px -4px oklch(0.65 0.13 25 / 0.5);
+  }
+  .paran .body { flex: 1; }
+  .paran .lbl { font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.10em; color: var(--terra-deep); font-weight: 700; }
+  .paran .ttl { margin-top: 1px; font-size: 13.5px; color: var(--ink-2); font-weight: 700; }
+  .paran .ttl .win { font-variant-numeric: tabular-nums; color: var(--terra-deep); }
+
+  /* Events */
+  .events { margin: 0 16px; display: flex; flex-direction: column; gap: 6px; }
+  .ev {
+    padding: 12px 14px; border-radius: 14px;
+    background: rgba(255,255,255,0.55);
+    border: 1px solid rgba(255,255,255,0.7);
+    display: flex; align-items: center; gap: 12px;
+    backdrop-filter: blur(12px);
+    box-shadow: 0 1px 2px oklch(0.30 0.06 250 / 0.04);
+  }
+  .ev .ic { flex: none; width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; }
+  .ev .ic.app { background: oklch(0.93 0.06 80 / 0.7); border: 1px solid color-mix(in oklch, var(--gold-deep) 28%, transparent); color: var(--gold-deep); }
+  .ev .ic.dis { background: oklch(0.92 0.045 290 / 0.7); border: 1px solid color-mix(in oklch, var(--lav-deep) 28%, transparent); color: var(--lav-deep); }
+  .ev .ic.other { background: rgba(255,255,255,0.6); border: 1px solid var(--hairline); color: var(--ink-soft); }
+  .ev .body { flex: 1; min-width: 0; }
+  .ev .ttl { font-size: 14px; font-weight: 600; color: var(--ink-2); line-height: 1.3; letter-spacing: -0.005em; }
+  .ev .sub { font-size: 11.5px; color: var(--text-3); margin-top: 1px; font-family: 'EB Garamond', Georgia, serif; font-style: italic; letter-spacing: 0.01em; }
+
+  /* Astro */
+  .astro { margin: 14px 16px 0; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .astro-card { padding: 12px 12px; border-radius: 16px; backdrop-filter: blur(16px) saturate(140%); }
+  .astro-card.sun { background: linear-gradient(160deg, oklch(0.93 0.06 80 / 0.7), oklch(0.86 0.10 75 / 0.50)); border: 1px solid color-mix(in oklch, var(--gold-deep) 26%, transparent); }
+  .astro-card.moon { background: linear-gradient(160deg, oklch(0.91 0.05 290 / 0.65), oklch(0.84 0.07 285 / 0.50)); border: 1px solid color-mix(in oklch, var(--lav) 32%, transparent); }
+  .astro-card .hd { display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.12em; margin-bottom: 10px; }
+  .astro-card.sun .hd { color: var(--gold-deep); }
+  .astro-card.moon .hd { color: var(--lav-deep); }
+  .astro-card .row { display: flex; justify-content: space-between; font-size: 12px; padding: 4px 0; color: var(--text-2); border-top: 1px solid color-mix(in oklch, var(--hairline) 70%, transparent); }
+  .astro-card .row:first-of-type { border-top: 0; padding-top: 0; }
+  .astro-card .row .v { color: var(--ink-2); font-weight: 700; font-variant-numeric: tabular-nums; }
+
+  /* Bottom-sheet */
+  .scrim {
+    position: fixed; inset: 0; z-index: 50;
+    background: linear-gradient(180deg, oklch(0.20 0.05 250 / 0) 0%, oklch(0.20 0.05 250 / 0.42) 50%, oklch(0.18 0.05 250 / 0.52) 100%);
+    backdrop-filter: blur(2px);
+    display: none;
+  }
+  .scrim.open { display: block; }
+  .sheet {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 60;
+    background: linear-gradient(180deg, oklch(0.985 0.008 235), oklch(0.96 0.012 235));
+    border-top-left-radius: 24px; border-top-right-radius: 24px;
+    padding: 12px 16px 22px;
+    box-shadow: 0 -22px 50px -20px oklch(0.20 0.06 250 / 0.4);
+    border-top: 1px solid rgba(255,255,255,0.8);
+    transform: translateY(100%);
+    transition: transform 280ms cubic-bezier(0.4, 0, 0.2, 1);
+    max-width: 380px;
+    margin: 0 auto;
+    max-height: 80vh;
+    overflow-y: auto;
+  }
+  .sheet.open { transform: translateY(0); }
+  .grip { width: 38px; height: 4px; background: var(--hairline); border-radius: 999px; margin: 4px auto 14px; }
+  .sheet-title { font-size: 14px; font-weight: 700; color: var(--ink-2); margin-bottom: 12px; letter-spacing: -0.005em; }
+  .group-h { font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--text-3); font-weight: 700; margin: 4px 4px 6px; }
+  .loc-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
+  .loc-item {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 14px; border-radius: 14px;
+    background: rgba(255,255,255,0.55);
+    border: 1px solid rgba(255,255,255,0.7);
+    cursor: pointer;
+  }
+  .loc-item.active {
+    background: linear-gradient(160deg, oklch(0.92 0.05 30 / 0.78), oklch(0.88 0.07 25 / 0.55));
+    border-color: color-mix(in oklch, var(--terra) 30%, transparent);
+  }
+  .loc-item .pin {
+    width: 32px; height: 32px; border-radius: 50%;
+    background: rgba(255,255,255,0.65);
+    border: 1px solid var(--hairline);
+    display: grid; place-items: center;
+    color: var(--ink-soft); flex: none;
+  }
+  .loc-item.active .pin {
+    background: linear-gradient(160deg, var(--terra), var(--terra-deep));
+    color: white; border-color: transparent;
+    box-shadow: 0 4px 10px -4px oklch(0.65 0.13 25 / 0.45);
+  }
+  .loc-item .info { flex: 1; min-width: 0; }
+  .loc-item .info .nm { font-size: 14px; font-weight: 700; color: var(--ink-2); letter-spacing: -0.005em; }
+  .loc-item .info .sub { font-size: 11px; color: var(--text-3); margin-top: 1px; font-variant-numeric: tabular-nums; letter-spacing: 0.01em; }
+  .loc-item .check { color: var(--terra-deep); flex: none; }
+  .loc-item.suggested {
+    background: rgba(255,255,255,0.35);
+    border-style: dashed;
+    border-color: color-mix(in oklch, var(--text-3) 35%, transparent);
+  }
+  .loc-item.suggested .pin { background: rgba(255,255,255,0.35); color: var(--text-3); border-style: dashed; }
+  .loc-item.suggested .info .nm { color: var(--text-2); font-weight: 600; }
+  .loc-item.loading { opacity: 0.6; pointer-events: none; }
+  .loc-item .spinner { width: 16px; height: 16px; border: 2px solid color-mix(in oklch, var(--terra-deep) 30%, transparent); border-top-color: var(--terra-deep); border-radius: 50%; animation: spin 0.8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Loading skeletons */
+  .skeleton {
+    background: linear-gradient(90deg, rgba(255,255,255,0.4), rgba(255,255,255,0.7), rgba(255,255,255,0.4));
+    background-size: 200% 100%;
+    animation: shimmer 1.4s linear infinite;
+    border-radius: 8px;
+  }
+  @keyframes shimmer { to { background-position: -200% 0; } }
 </style>
 </head>
-<body class="flex items-center justify-center p-6">
-  <div class="glass rounded-3xl max-w-md w-full p-10 text-center">
-    <div class="text-[11px] tracking-[0.12em] uppercase font-semibold" style="color: oklch(0.60 0.115 25);">Календарь</div>
-    <h1 class="font-serif italic text-3xl mt-3" style="color: oklch(0.27 0.030 245);">Скоро</h1>
-    <p class="mt-4 text-[14px] leading-relaxed" style="color: oklch(0.50 0.022 240);">
-      Здесь будет ежемесячный обзор: экадаши, явления, паран-окна — по локации.
-      Дизайн на подходе.
-    </p>
-    <a href="/morning.html" class="inline-block mt-7 text-[12.5px] tracking-eyebrow uppercase font-bold"
-       style="color: oklch(0.60 0.115 25); letter-spacing: 0.12em;">← На утро</a>
+<body>
+
+<div class="stage" id="stage">
+
+  <header class="topbar">
+    <a class="back-btn" href="/morning.html" aria-label="на главную">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+    </a>
+    <div style="display: flex; align-items: center; gap: 10px;">
+      <button class="icon-btn" id="prev-month" aria-label="предыдущий месяц">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+      </button>
+      <div class="month"><span id="month-name">—</span> <span class="yr num" id="month-year">—</span></div>
+      <button class="icon-btn" id="next-month" aria-label="следующий месяц">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+      </button>
+    </div>
+    <button class="icon-btn" id="today-btn" aria-label="сегодня">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="5" width="18" height="16" rx="2"/>
+        <path d="M3 10h18"/>
+        <path d="M8 3v4M16 3v4"/>
+        <circle cx="12" cy="15" r="1.6" fill="currentColor"/>
+      </svg>
+    </button>
+  </header>
+
+  <div class="loc-row" id="loc-pill">
+    <span class="loc-dot"></span>
+    <span class="loc-name" id="loc-name">—</span>
+    <span class="loc-meta num" id="loc-meta">—</span>
+    <svg class="loc-chev" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
   </div>
+
+  <div class="dow-row">
+    <div class="dow">пн</div><div class="dow">вт</div><div class="dow">ср</div><div class="dow">чт</div><div class="dow">пт</div><div class="dow we">сб</div><div class="dow we">вс</div>
+  </div>
+
+  <div class="cal" id="cal-grid"></div>
+
+  <div class="legend">
+    <span><span class="swatch ek"></span>экадаши</span>
+    <span><span class="swatch hol"></span>большой праздник</span>
+    <span><span class="swatch fest"></span>явление / уход</span>
+  </div>
+
+  <div class="divider"></div>
+
+  <div id="day-body">
+    <!-- selected-day card + paran + events + astro renders here -->
+  </div>
+</div>
+
+<!-- Bottom-sheet -->
+<div class="scrim" id="loc-scrim"></div>
+<div class="sheet" id="loc-sheet">
+  <div class="grip"></div>
+  <div class="sheet-title">Где считать</div>
+  <div class="group-h">Сохранённые</div>
+  <div class="loc-list" id="loc-saved"></div>
+  <div class="group-h">Часто</div>
+  <div class="loc-list" id="loc-suggested"></div>
+</div>
+
+<script type="module">
+  import { db, requireAuth } from './js/db.js'
+
+  const MONTHS_NOM = ['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь']
+  const MONTHS_GEN = ['января','февраля','марта','апреля','мая','июня','июля','августа','сентября','октября','ноября','декабря']
+  const WEEKDAYS   = ['понедельник','вторник','среда','четверг','пятница','суббота','воскресенье']
+
+  // Известные «святые места» — статичные подсказки в bottom-sheet
+  const SUGGESTED_LOCATIONS = [
+    { key: 'vrindavan', name: 'Вриндаван',    country: 'Индия',  lat: 27.5806, lon: 77.7006, timezone: 'Asia/Kolkata' },
+    { key: 'mayapur',   name: 'Майяпур',      country: 'Индия',  lat: 23.4218, lon: 88.3889, timezone: 'Asia/Kolkata' },
+    { key: 'puri',      name: 'Джаганнатха-Пури', country: 'Индия', lat: 19.8135, lon: 85.8312, timezone: 'Asia/Kolkata' },
+    { key: 'navadvipa', name: 'Навадвипа',    country: 'Индия',  lat: 23.4067, lon: 88.3713, timezone: 'Asia/Kolkata' },
+  ]
+
+  const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) =>
+    ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))
+
+  function fmtCoords(lat, lon) {
+    const ns = lat >= 0 ? 'N' : 'S'
+    const ew = lon >= 0 ? 'E' : 'W'
+    return `${Math.abs(lat).toFixed(2)}° ${ns} · ${Math.abs(lon).toFixed(2)}° ${ew}`
+  }
+
+  function fmtTz(tzName) {
+    try {
+      const fmt = new Intl.DateTimeFormat('en', { timeZone: tzName, timeZoneName: 'shortOffset' })
+      const parts = fmt.formatToParts(new Date())
+      const tz = parts.find(p => p.type === 'timeZoneName')?.value || ''
+      return tz.replace('GMT', 'UTC')
+    } catch { return '' }
+  }
+
+  function fmtTime(iso, tzName) {
+    if (!iso) return '—'
+    return new Intl.DateTimeFormat('ru-RU', { timeZone: tzName, hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date(iso))
+  }
+
+  function localDateNow(tz) {
+    return new Intl.DateTimeFormat('en-CA', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date())
+  }
+
+  function weekdayMonRu(isoDate) {
+    // Mon=0..Sun=6 — для локальной интерпретации (date-only, без сдвига)
+    const [y, m, d] = isoDate.split('-').map(Number)
+    const dt = new Date(Date.UTC(y, m - 1, d))
+    const jsDay = dt.getUTCDay() // 0=Sun..6=Sat
+    return (jsDay + 6) % 7 // 0=Mon..6=Sun
+  }
+
+  function daysInMonth(year, month) {
+    return new Date(year, month, 0).getDate()
+  }
+
+  // ---- State ----
+  const STATE = {
+    user: null,
+    locations: [],          // [{id, key, name, country, lat, lon, timezone, is_primary}]
+    currentLocation: null,  // {id, ...}
+    year: 2026,
+    month: 5,               // 1-12
+    selectedDate: null,     // YYYY-MM-DD
+    today: null,            // YYYY-MM-DD
+    grid: null,             // month-grid response { days: [...] }
+    dayData: null,          // day response { panchanga, events, paran }
+  }
+
+  // ---- Render helpers ----
+
+  function buildGridCells() {
+    const { year, month, today, selectedDate, grid } = STATE
+    const flagsByDate = new Map((grid?.days ?? []).map(d => [d.date, d]))
+
+    const first = new Date(year, month - 1, 1)
+    const dim = daysInMonth(year, month)
+    const startMon = (first.getDay() + 6) % 7 // Mon=0
+
+    const cells = []
+    // Заполняем дни предыдущего месяца (muted)
+    const prevDim = daysInMonth(year, month === 1 ? 12 : month - 1)
+    for (let i = startMon - 1; i >= 0; i--) {
+      cells.push({ d: prevDim - i, muted: true })
+    }
+    // Текущий месяц
+    for (let d = 1; d <= dim; d++) {
+      const iso = `${year}-${String(month).padStart(2, '0')}-${String(d).padStart(2, '0')}`
+      const wd = weekdayMonRu(iso)
+      const flags = flagsByDate.get(iso)
+      cells.push({
+        d, iso,
+        we: wd >= 5,
+        ekadasi: !!flags?.isEkadasi,
+        holiday: !!flags?.isMajor,
+        hasDot: !!flags?.hasDot,
+        today: iso === today,
+        selected: iso === selectedDate,
+      })
+    }
+    // Заполняем дни следующего месяца до конца сетки
+    const totalCells = Math.ceil(cells.length / 7) * 7
+    let nextD = 1
+    while (cells.length < totalCells) {
+      cells.push({ d: nextD++, muted: true })
+    }
+    return cells
+  }
+
+  function renderGrid() {
+    const cells = buildGridCells()
+    const grid = document.getElementById('cal-grid')
+    grid.innerHTML = cells.map((c) => {
+      if (c.muted) return `<span class="cell muted">${c.d}</span>`
+      const classes = ['cell']
+      if (c.we) classes.push('we')
+      if (c.today) classes.push('today')
+      if (c.selected) classes.push('selected')
+      if (c.ekadasi) classes.push('ekadasi')
+      if (c.holiday) classes.push('holiday')
+      const dot = c.hasDot ? '<span class="dot"></span>' : ''
+      return `<button class="${classes.join(' ')}" data-iso="${c.iso}">${c.d}${dot}</button>`
+    }).join('')
+
+    grid.querySelectorAll('button[data-iso]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        STATE.selectedDate = btn.dataset.iso
+        renderGrid()
+        loadDay()
+      })
+    })
+  }
+
+  function renderHeader() {
+    document.getElementById('month-name').textContent = MONTHS_NOM[STATE.month - 1]
+    document.getElementById('month-year').textContent = STATE.year
+    if (STATE.currentLocation) {
+      document.getElementById('loc-name').textContent = STATE.currentLocation.name
+      document.getElementById('loc-meta').textContent = fmtCoords(Number(STATE.currentLocation.lat), Number(STATE.currentLocation.lon))
+    }
+  }
+
+  function renderDayBody() {
+    const dd = STATE.dayData
+    const tz = STATE.currentLocation?.timezone || 'Europe/Moscow'
+    const out = document.getElementById('day-body')
+
+    if (!dd) {
+      out.innerHTML = '<div class="sel-card"><div class="skeleton" style="height: 80px;"></div></div>'
+      return
+    }
+
+    const date = dd.date
+    const [y, m, d] = date.split('-').map(Number)
+    const wd = weekdayMonRu(date)
+    const isToday = date === STATE.today
+    const p = dd.panchanga
+
+    const heroParts = []
+    heroParts.push(`<div class="sel-card">
+      <div class="eyebrow">
+        <span>${isToday ? 'сегодня' : 'выбрано'}</span>
+        <span class="pill">${WEEKDAYS[wd]}</span>
+      </div>
+      <div class="date-big">${d} ${MONTHS_GEN[m - 1]} ${y}</div>`)
+
+    if (p) {
+      heroParts.push(`<div class="tithi-row">
+        <div class="item"><span class="l">титхи</span><span class="v">${esc(p.tithi_name)}</span></div>
+        <div class="item"><span class="l">маса</span><span class="v">${esc(p.masa_name)}</span></div>
+        <div class="item"><span class="l">пакша</span><span class="v">${esc(p.paksha)}</span></div>
+        <div class="item"><span class="l">гаурабда</span><span class="v num">${p.gaurabda_year}</span></div>
+      </div>`)
+    }
+    heroParts.push(`</div>`)
+
+    // Paran banner
+    if (dd.paran?.start_at) {
+      const winStart = fmtTime(dd.paran.start_at, tz)
+      const winEnd = dd.paran.end_at ? fmtTime(dd.paran.end_at, tz) : null
+      const win = winEnd ? `${winStart} — ${winEnd}` : `с ${winStart}`
+      heroParts.push(`<div class="paran">
+        <span class="ic">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+        </span>
+        <div class="body">
+          <div class="lbl">паран</div>
+          <div class="ttl">Прервать пост <span class="win num">${win}</span></div>
+        </div>
+      </div>`)
+    }
+
+    // Events
+    const interestingEvents = (dd.events ?? []).filter(ev => ev.event_type !== 'ekadashi')
+    if (interestingEvents.length > 0) {
+      const rows = interestingEvents.map(ev => {
+        let icCls = 'other'
+        let icSvg = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/></svg>'
+        if (ev.event_type === 'appearance') {
+          icCls = 'app'
+          icSvg = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.93 4.93l2.12 2.12M16.95 16.95l2.12 2.12M2 12h3M19 12h3M4.93 19.07l2.12-2.12M16.95 7.05l2.12-2.12"/></svg>'
+        } else if (ev.event_type === 'disappearance') {
+          icCls = 'dis'
+          icSvg = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2C12 7 8 11 4 11"/><path d="M12 2C12 7 16 11 20 11"/><path d="M12 2v20"/></svg>'
+        }
+        const sub = ev.description ? `<div class="sub">${esc(ev.description)}</div>` : ''
+        return `<div class="ev">
+          <span class="ic ${icCls}">${icSvg}</span>
+          <div class="body">
+            <div class="ttl">${esc(ev.event_name)}</div>
+            ${sub}
+          </div>
+        </div>`
+      }).join('')
+      heroParts.push(`<div class="events">${rows}</div>`)
+    }
+
+    // Astro panel
+    if (p) {
+      const sunRise = fmtTime(p.sunrise_at, tz)
+      const sunNoon = fmtTime(p.noon_at, tz)
+      const sunSet = fmtTime(p.sunset_at, tz)
+      const bm = fmtTime(p.brahma_muhurta_at, tz)
+      const dl = p.day_length_min
+      const dlStr = dl ? `${Math.floor(dl / 60)} ч ${dl % 60} м` : '—'
+
+      const moonRise = fmtTime(p.moonrise_at, tz)
+      const moonSet = fmtTime(p.moonset_at, tz)
+      const moonAge = p.moon_age_days != null ? `${Number(p.moon_age_days).toFixed(0)} д` : '—'
+      const moonIllum = p.moon_illumination != null ? `${Math.round(Number(p.moon_illumination))} %` : '—'
+
+      heroParts.push(`<div class="astro">
+        <div class="astro-card sun">
+          <div class="hd">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
+            Солнце
+          </div>
+          <div class="row"><span>Брахма мухурта</span><span class="v num">${bm}</span></div>
+          <div class="row"><span>Восход</span><span class="v num">${sunRise}</span></div>
+          <div class="row"><span>Полдень</span><span class="v num">${sunNoon}</span></div>
+          <div class="row"><span>Закат</span><span class="v num">${sunSet}</span></div>
+          <div class="row"><span>Долгота</span><span class="v num">${dlStr}</span></div>
+        </div>
+        <div class="astro-card moon">
+          <div class="hd">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+            Луна
+          </div>
+          <div class="row"><span>Пакша</span><span class="v">${esc(p.paksha)}</span></div>
+          <div class="row"><span>Восход</span><span class="v num">${moonRise}</span></div>
+          <div class="row"><span>Заход</span><span class="v num">${moonSet}</span></div>
+          <div class="row"><span>Возраст</span><span class="v num">${moonAge}</span></div>
+          <div class="row"><span>Освещ.</span><span class="v num">${moonIllum}</span></div>
+        </div>
+      </div>`)
+    }
+
+    out.innerHTML = heroParts.join('')
+  }
+
+  // ---- Bottom-sheet locations ----
+
+  function openSheet() {
+    document.getElementById('loc-scrim').classList.add('open')
+    document.getElementById('loc-sheet').classList.add('open')
+    renderSheet()
+  }
+  function closeSheet() {
+    document.getElementById('loc-scrim').classList.remove('open')
+    document.getElementById('loc-sheet').classList.remove('open')
+  }
+
+  function pinSvg() {
+    return '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0z"/><circle cx="12" cy="10" r="2.5"/></svg>'
+  }
+  function checkSvg() {
+    return '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="5 12 10 17 19 7"/></svg>'
+  }
+
+  function renderSheet() {
+    const saved = document.getElementById('loc-saved')
+    saved.innerHTML = STATE.locations.map(loc => {
+      const active = loc.id === STATE.currentLocation?.id
+      const checkHtml = active ? `<span class="check">${checkSvg()}</span>` : ''
+      return `<div class="loc-item ${active ? 'active' : ''}" data-id="${loc.id}">
+        <span class="pin">${pinSvg()}</span>
+        <div class="info">
+          <div class="nm">${esc(loc.name)}</div>
+          <div class="sub num">${fmtCoords(Number(loc.lat), Number(loc.lon))} · ${fmtTz(loc.timezone)}</div>
+        </div>
+        ${checkHtml}
+      </div>`
+    }).join('')
+
+    // Подсказки — исключаем те, что уже сохранены (по координатам в пределах ~0.1°)
+    const savedKeys = new Set(STATE.locations.map(l => `${Number(l.lat).toFixed(1)}_${Number(l.lon).toFixed(1)}`))
+    const suggestions = SUGGESTED_LOCATIONS.filter(s => !savedKeys.has(`${s.lat.toFixed(1)}_${s.lon.toFixed(1)}`))
+    const sg = document.getElementById('loc-suggested')
+    sg.innerHTML = suggestions.map(s => `<div class="loc-item suggested" data-sug="${s.key}">
+      <span class="pin">${pinSvg()}</span>
+      <div class="info">
+        <div class="nm">${esc(s.name)}</div>
+        <div class="sub num">${fmtCoords(s.lat, s.lon)} · ${fmtTz(s.timezone)}</div>
+      </div>
+    </div>`).join('')
+
+    saved.querySelectorAll('.loc-item[data-id]').forEach(el => {
+      el.addEventListener('click', () => switchLocation(el.dataset.id))
+    })
+    sg.querySelectorAll('.loc-item[data-sug]').forEach(el => {
+      el.addEventListener('click', () => addSuggestedLocation(el.dataset.sug, el))
+    })
+  }
+
+  async function switchLocation(locId) {
+    if (locId === STATE.currentLocation?.id) {
+      closeSheet()
+      return
+    }
+    const newLoc = STATE.locations.find(l => l.id === locId)
+    if (!newLoc) return
+
+    // Обновим current_location_id в БД
+    const { error } = await db.from('user_profile').update({ current_location_id: locId }).eq('id', STATE.user.id)
+    if (error) {
+      alert('Не получилось переключить: ' + error.message)
+      return
+    }
+    STATE.currentLocation = newLoc
+    closeSheet()
+    renderHeader()
+    await loadMonth()
+    await loadDay()
+  }
+
+  async function addSuggestedLocation(suggestionKey, btnEl) {
+    const sug = SUGGESTED_LOCATIONS.find(s => s.key === suggestionKey)
+    if (!sug) return
+    // Optimistic UI
+    btnEl.classList.add('loading')
+    btnEl.innerHTML = `<span class="pin">${pinSvg()}</span>
+      <div class="info">
+        <div class="nm">${esc(sug.name)}</div>
+        <div class="sub">Добавляю и считаю календарь…</div>
+      </div>
+      <span class="spinner"></span>`
+
+    const { data, error } = await db.functions.invoke('add-location', {
+      body: { key: sug.key, name: sug.name, country: sug.country, lat: sug.lat, lon: sug.lon, timezone: sug.timezone },
+    })
+    if (error) {
+      alert('Не получилось добавить: ' + error.message)
+      return
+    }
+    // Перезагружаем локации и переключаемся
+    await loadLocations()
+    if (data?.location_id) {
+      await switchLocation(data.location_id)
+    }
+  }
+
+  // ---- Data loading ----
+
+  async function loadLocations() {
+    const { data, error } = await db.from('locations').select('id, key, name, country, lat, lon, timezone, is_primary').order('is_primary', { ascending: false })
+    if (error) throw error
+    STATE.locations = data
+  }
+
+  async function loadCurrentLocation() {
+    const { data, error } = await db.from('user_profile').select('current_location_id').eq('id', STATE.user.id).single()
+    if (error) throw error
+    STATE.currentLocation = STATE.locations.find(l => l.id === data.current_location_id) || STATE.locations[0]
+  }
+
+  async function loadMonth() {
+    const r = await db.functions.invoke(`astro-api?kind=month-grid&year=${STATE.year}&month=${STATE.month}`)
+    if (r.error) { console.warn('month-grid', r.error); return }
+    STATE.grid = r.data
+    renderGrid()
+  }
+
+  async function loadDay() {
+    if (!STATE.selectedDate) return
+    document.getElementById('day-body').innerHTML = '<div class="sel-card"><div class="skeleton" style="height: 60px;"></div></div>'
+    const r = await db.functions.invoke(`astro-api?kind=day&date=${STATE.selectedDate}`)
+    if (r.error) { console.warn('day', r.error); return }
+    STATE.dayData = r.data
+    renderDayBody()
+  }
+
+  function navigateMonth(delta) {
+    STATE.month += delta
+    while (STATE.month > 12) { STATE.month -= 12; STATE.year += 1 }
+    while (STATE.month < 1) { STATE.month += 12; STATE.year -= 1 }
+    // если выбранная дата вне нового месяца — сбросим на 1 число
+    if (!STATE.selectedDate?.startsWith(`${STATE.year}-${String(STATE.month).padStart(2, '0')}`)) {
+      STATE.selectedDate = `${STATE.year}-${String(STATE.month).padStart(2, '0')}-01`
+    }
+    renderHeader()
+    loadMonth()
+    loadDay()
+  }
+
+  function jumpToToday() {
+    if (!STATE.today) return
+    const [y, m] = STATE.today.split('-').map(Number)
+    STATE.year = y
+    STATE.month = m
+    STATE.selectedDate = STATE.today
+    renderHeader()
+    loadMonth()
+    loadDay()
+  }
+
+  // ---- Init ----
+
+  async function init() {
+    STATE.user = await requireAuth()
+    if (!STATE.user) return
+
+    await loadLocations()
+    await loadCurrentLocation()
+
+    const tz = STATE.currentLocation.timezone
+    STATE.today = localDateNow(tz)
+    const [y, m] = STATE.today.split('-').map(Number)
+    STATE.year = y
+    STATE.month = m
+    STATE.selectedDate = STATE.today
+
+    renderHeader()
+    document.getElementById('prev-month').addEventListener('click', () => navigateMonth(-1))
+    document.getElementById('next-month').addEventListener('click', () => navigateMonth(1))
+    document.getElementById('today-btn').addEventListener('click', jumpToToday)
+    document.getElementById('loc-pill').addEventListener('click', openSheet)
+    document.getElementById('loc-scrim').addEventListener('click', closeSheet)
+
+    await loadMonth()
+    await loadDay()
+  }
+
+  init().catch(err => {
+    console.error(err)
+    document.getElementById('day-body').innerHTML = `<div class="sel-card" style="color: var(--terra-deep);">Ошибка загрузки: ${esc(err.message ?? err)}</div>`
+  })
+</script>
 </body>
 </html>
