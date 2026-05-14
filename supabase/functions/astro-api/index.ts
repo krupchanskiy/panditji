@@ -225,26 +225,46 @@ Deno.serve(async (req) => {
       panchanga: any,
     }> = {}
 
-    // Большие праздники: явления/уходы Господа и Шрилы Прабхупады, главные сезонные.
-    // case-insensitive по подстроке. Ловим и кириллицу, и латиницу — часть имён в БД
-    // приходит непереведённой (Lord Balarama, Srila Prabhupada — Disappearance, …).
+    // Большие праздники: явления/уходы Господа и парампары, главные сезонные.
+    // Имена в БД нормализованы в кириллицу через name_map; на всякий случай оставляем
+    // латиницу для устойчивости к новым событиям от gaurabda до их перевода.
     const MAJOR_KEYWORDS_LC = [
-      // Кириллица (переведённые имена из name_map.py)
+      // Явления/уходы Господа и Его непосредственных спутников
       'джанмаштами', 'гаура-пурнима', 'нрисимха', 'рама-навами', 'радхаштами',
-      'баларама', 'нитьянанда', 'ратха-ятра', 'говардхана', 'гуру (вьяса)',
-      'прабхупада', 'бхактисиддханта', 'бхактивинода',
-      'варта-двадаши', 'вамана-двадаши',
-      // Латиница (непереведённые — gaurabda даёт)
+      'баларама', 'нитьянанда', 'адвайта ачарья',
+      'вамана-двадаши', 'вараха-двадаши',
+      // Парампара — Прабхупада и его учителя
+      'прабхупада', 'бхактисиддханта', 'бхактивинода', 'гауракишора',
+      // Особо значимые ачарьи
+      'харидаса тхакур',  // Намачарья
+      'вишварупа',        // брат Чайтаньи Махапрабху
+      // Крупные годовые сезонные
+      'ратха-ятра', 'говардхана', 'нандотсава',
+      'гуру-пурнима', 'гуру (вьяса)',
+      'бхишма-аштами',
+      'гопаштами',
+      'бхагавад-гита', 'гита-джаянти',
+      // Латиница — fallback (если gaurabda даст событие без перевода в name_map)
       'janmastami', 'gaura purnima', 'nrsimha', 'rama navami', 'radhastami',
-      'balarama', 'nityananda', 'ratha yatra', 'govardhana', 'guru (vyasa)',
-      'prabhupada', 'bhaktisiddhanta', 'bhaktivinoda',
-      'varaha dvadasi', 'vamana dvadasi',
+      'balarama', 'nityananda', 'advaita acarya',
+      'vamana dvadasi', 'varaha dvadasi',
+      'prabhupada', 'bhaktisiddhanta', 'bhaktivinoda', 'gaura kisora',
+      'haridasa thakura', 'visvarupa',
+      'ratha yatra', 'govardhana', 'nandotsava',
+      'guru (vyasa)', 'guru purnima',
+      'bhismastami', 'gopastami',
+      'bhagavad-gita', 'advent of srimad bhagavad-gita',
     ]
-    function isMajor(name: string, eventType: string): boolean {
-      // Майор — только реальные явления/уходы и пурнимы. «departure for the USA» и пр.
-      // относятся к event_type='other' и остаются minor.
-      if (eventType !== 'appearance' && eventType !== 'disappearance' && eventType !== 'purnima') return false
+    // Биографические other-события, которые на самом деле не «большие»,
+    // несмотря на наличие «прабхупада» в названии.
+    const BIOGRAPHICAL_LC = [
+      'прибытие в сша', 'отбытие в сша', 'принятие санньясы', 'регистрация исккон',
+      'arrival in the usa', 'departure for the usa', 'acceptance of sannyasa',
+      'incorporation of iskcon',
+    ]
+    function isMajor(name: string, _eventType: string): boolean {
       const lc = (name || '').toLowerCase()
+      if (BIOGRAPHICAL_LC.some(k => lc.includes(k))) return false
       return MAJOR_KEYWORDS_LC.some(k => lc.includes(k))
     }
 
