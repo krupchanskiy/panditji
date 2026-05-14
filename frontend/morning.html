@@ -257,7 +257,7 @@
   const today = localDate(tz)
 
   /* Список дел + отметки выполнения за сегодня + погода — параллельно. */
-  const [{ data: todoDefs }, { data: completions }, weatherRes] = await Promise.all([
+  const [{ data: todoDefs }, { data: completions }, weatherRes, whoopTokRes] = await Promise.all([
     db.from('daily_todos')
       .select('id, todo_key, emoji, emoji_variant, label, sort_order')
       .eq('is_active', true)
@@ -266,11 +266,60 @@
       .select('todo_id')
       .eq('date', today),
     db.functions.invoke('weather'),
+    db.from('oauth_tokens')
+      .select('is_active')
+      .eq('provider', 'whoop')
+      .maybeSingle(),
   ])
   const doneSet = new Set(completions.map((c) => c.todo_id))
   const temperature = weatherRes.error
     ? null
     : Math.round(weatherRes.data.temperature_c)
+  const whoopConnected = !!whoopTokRes.data?.is_active
+
+  /* Если Whoop подключён — тянем последнюю запись recovery + связанный сон. */
+  let sleep = null
+  if (whoopConnected) {
+    const { data: recovery } = await db
+      .from('whoop_recovery')
+      .select('recovery_score, hrv_rmssd_ms, sleep_id, created_at')
+      .order('date', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    if (recovery?.sleep_id) {
+      const { data: whoopSleep } = await db
+        .from('whoop_sleeps')
+        .select('duration_seconds, sleep_efficiency, end_at')
+        .eq('id', recovery.sleep_id)
+        .maybeSingle()
+
+      if (whoopSleep) {
+        const totalSec = whoopSleep.duration_seconds ?? 0
+        const h = Math.floor(totalSec / 3600)
+        const m = Math.floor((totalSec % 3600) / 60)
+        const endLocal = new Intl.DateTimeFormat('ru-RU', {
+          timeZone: tz, hour: '2-digit', minute: '2-digit', hour12: false,
+        }).format(new Date(whoopSleep.end_at))
+
+        sleep = {
+          recovery: recovery.recovery_score,
+          duration: { h, m },
+          sleepEfficiency: whoopSleep.sleep_efficiency != null
+            ? Math.round(whoopSleep.sleep_efficiency)
+            : null,
+          hrv: recovery.hrv_rmssd_ms != null
+            ? Math.round(recovery.hrv_rmssd_ms)
+            : null,
+          hrvNormPosition: 60, /* TODO: брать из baselines, когда появятся */
+          syncedAt: endLocal,
+        }
+      }
+    }
+
+    /* Фоном обновляем данные с Whoop — на следующее открытие будет свежее. */
+    db.functions.invoke('whoop-fetch').catch((e) => console.warn('whoop-fetch bg failed', e))
+  }
 
   /* Состояние экрана. Блоки с пометкой MOCK подцепим в следующих фазах:
      Whoop (sleep), Google Calendar (events), gaurabda (ekadasi),
@@ -281,14 +330,8 @@
     panditjiMessage:
       'Доброе утро, Ачинтья джи. Ночь оказалась дельной — Whoop говорит, готов на 78%, выше обычного. ' +
       '<em>Уттара Бхадрапада</em> сегодня вяжет терпением: подходящий день читать без спешки.',
-    sleep: {
-      recovery: 78,
-      duration: { h: 7, m: 24 },
-      sleepEfficiency: 92,
-      hrv: 58,
-      hrvNormPosition: 60,
-      syncedAt: '06:14',
-    },
+    whoopConnected,
+    sleep,
     events: [
       { time: '10:00', title: 'Звонок с Иваном',     duration: '45 минут', accent: 'sage'  },
       { time: '15:00', title: 'Онлайн-консультация', duration: '1 час',    accent: 'terra' },
@@ -359,6 +402,8 @@
   }
 
   function renderSleep(s) {
+    if (!s.whoopConnected) return renderWhoopConnect();
+    if (!s.sleep) return renderWhoopWaiting();
     const { recovery, duration, sleepEfficiency, hrv, hrvNormPosition, syncedAt } = s.sleep;
     return `
       <section class="px-5 mt-6">
@@ -389,7 +434,7 @@
             <div class="c-ink-2 mt-2.5 text-[24px] font-extrabold num leading-none tracking-tight">
               ${duration.h}<span class="text-[13px] font-semibold opacity-55">ч</span> ${duration.m}<span class="text-[13px] font-semibold opacity-55">м</span>
             </div>
-            <div class="c-text-2 mt-1 text-[10.5px] font-semibold">эфф. ${sleepEfficiency}%</div>
+            <div class="c-text-2 mt-1 text-[10.5px] font-semibold">${sleepEfficiency != null ? `эфф. ${sleepEfficiency}%` : '—'}</div>
           </div>
 
           <div class="glass-gold rounded-2xl p-3">
@@ -397,9 +442,35 @@
               <span class="c-gold-deep text-[10px] tracking-eyebrow uppercase font-semibold">HRV</span>
               <div class="ring" style="color: oklch(0.60 0.12 70); --p: ${hrvNormPosition};"></div>
             </div>
-            <div class="c-ink-2 mt-2.5 text-[24px] font-extrabold num leading-none tracking-tight">${hrv}<span class="text-[13px] font-semibold opacity-55">мс</span></div>
+            <div class="c-ink-2 mt-2.5 text-[24px] font-extrabold num leading-none tracking-tight">${hrv != null ? hrv : '—'}<span class="text-[13px] font-semibold opacity-55">мс</span></div>
             <div class="c-gold-deep mt-1 text-[10.5px] font-semibold">норма 50–65</div>
           </div>
+        </div>
+      </section>`;
+  }
+
+  function renderWhoopConnect() {
+    return `
+      <section class="px-5 mt-6">
+        <div class="flex items-center justify-between mb-2.5">
+          <span class="c-text-2 text-[10.5px] tracking-eyebrow uppercase font-semibold">Ночь · Whoop</span>
+        </div>
+        <button data-action="connect-whoop" class="glass rounded-2xl w-full p-5 flex flex-col items-start gap-2 text-left active:scale-[0.99] transition">
+          <span class="c-ink-2 text-[15px] font-semibold">Подключи Whoop</span>
+          <span class="c-text-2 text-[12.5px] leading-snug">Будем читать сон, HRV и recovery каждое утро. Один раз авторизоваться — дальше тихо.</span>
+          <span class="c-terra-deep text-[11px] tracking-eyebrow uppercase font-bold mt-1">Открыть авторизацию →</span>
+        </button>
+      </section>`;
+  }
+
+  function renderWhoopWaiting() {
+    return `
+      <section class="px-5 mt-6">
+        <div class="flex items-center justify-between mb-2.5">
+          <span class="c-text-2 text-[10.5px] tracking-eyebrow uppercase font-semibold">Ночь · Whoop</span>
+        </div>
+        <div class="glass rounded-2xl p-4">
+          <span class="c-text-2 text-[13px]">Whoop подключён, жду первые данные. Открой Whoop-приложение и потяни синхронизацию.</span>
         </div>
       </section>`;
   }
@@ -522,6 +593,20 @@
     }
   }
 
+  async function startWhoopConnect(btn) {
+    btn.disabled = true
+    btn.style.opacity = '0.6'
+    const { data, error } = await db.functions.invoke('whoop-init')
+    if (error || !data?.auth_url) {
+      console.error('whoop-init failed', error)
+      btn.disabled = false
+      btn.style.opacity = '1'
+      alert('Не получилось получить ссылку Whoop. Попробуй ещё раз чуть позже.')
+      return
+    }
+    window.location.href = data.auth_url
+  }
+
   document.addEventListener('click', (ev) => {
     const row = ev.target.closest('.todo-row');
     if (row) {
@@ -533,6 +618,11 @@
       updateCounter();
       /* Оптимистично: DOM обновлён, БД синкаем фоном. */
       toggleTodo(id, todo.done);
+      return;
+    }
+    const connectBtn = ev.target.closest('[data-action="connect-whoop"]');
+    if (connectBtn) {
+      startWhoopConnect(connectBtn);
       return;
     }
     const burger = ev.target.closest('#burger');
