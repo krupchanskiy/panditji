@@ -1,0 +1,320 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Whoop — детали</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:        oklch(0.965 0.010 235);
+    --ink:       oklch(0.32 0.060 250);
+    --ink-2:     oklch(0.25 0.060 250);
+    --ink-soft:  oklch(0.44 0.055 250);
+    --text:      oklch(0.27 0.030 245);
+    --text-2:    oklch(0.50 0.022 240);
+    --text-3:    oklch(0.62 0.015 240);
+    --terra:     oklch(0.74 0.095 28);
+    --terra-deep:oklch(0.60 0.115 25);
+    --sage:      oklch(0.74 0.065 225);
+    --sage-deep: oklch(0.52 0.085 235);
+    --gold:      oklch(0.76 0.060 290);
+    --gold-deep: oklch(0.50 0.10 70);
+  }
+  html, body { min-height: 100vh; }
+  body {
+    font-family: 'Manrope', ui-sans-serif, sans-serif;
+    color: var(--text);
+    -webkit-font-smoothing: antialiased;
+    background:
+      radial-gradient(80% 70% at 85% 5%,  oklch(0.85 0.05 250 / 0.32) 0%, transparent 75%),
+      radial-gradient(75% 65% at 8% 28%,  oklch(0.84 0.045 230 / 0.32) 0%, transparent 78%),
+      linear-gradient(180deg, oklch(0.965 0.010 235), oklch(0.94 0.016 235));
+    background-attachment: fixed;
+  }
+
+  .num            { font-feature-settings: "tnum" 1; font-variant-numeric: tabular-nums; }
+  .tracking-eyebrow { letter-spacing: 0.12em; }
+
+  .c-ink-2        { color: var(--ink-2); }
+  .c-text-2       { color: var(--text-2); }
+  .c-text-3       { color: var(--text-3); }
+  .c-terra-deep   { color: var(--terra-deep); }
+  .c-sage-deep    { color: var(--sage-deep); }
+  .c-gold-deep    { color: var(--gold-deep); }
+
+  .glass {
+    background: rgba(255,255,255,0.55);
+    backdrop-filter: blur(22px) saturate(140%);
+    -webkit-backdrop-filter: blur(22px) saturate(140%);
+    border: 1px solid rgba(255,255,255,0.7);
+    box-shadow:
+      0 1px 0 rgba(255,255,255,0.9) inset,
+      0 1px 2px oklch(0.30 0.06 250 / 0.05),
+      0 8px 24px -16px oklch(0.30 0.06 250 / 0.20);
+  }
+
+  /* Полоска стадий сна. */
+  .stage-bar { display: flex; height: 12px; border-radius: 6px; overflow: hidden; }
+  .stage-bar > span { display: block; }
+  .stage-light { background: oklch(0.78 0.07 235); }
+  .stage-deep  { background: oklch(0.40 0.08 245); }
+  .stage-rem   { background: oklch(0.65 0.10 290); }
+  .stage-awake { background: oklch(0.74 0.095 28); }
+
+  .row-divider { background: rgba(40,55,45,0.08); }
+</style>
+</head>
+<body class="min-h-screen">
+
+<div id="root" class="max-w-[480px] mx-auto"></div>
+
+<script type="module">
+  import { db, requireAuth } from './js/db.js'
+
+  const user = await requireAuth()
+  if (!user) throw new Error('redirected')
+
+  const params = new URLSearchParams(window.location.search)
+  const type = params.get('type')
+  if (!['recovery', 'sleep', 'hrv'].includes(type)) {
+    window.location.replace('/morning.html')
+    throw new Error('bad type')
+  }
+
+  const TITLES = {
+    recovery: 'Recovery',
+    sleep:    'Сон',
+    hrv:      'HRV',
+  }
+
+  const root = document.getElementById('root')
+  root.innerHTML = renderShell('загружаем…')
+
+  /* Запрос с querystring — supabase-js передаёт его в URL функции. */
+  const { data, error } = await db.functions.invoke('metric-detail?type=' + type)
+  if (error || !data) {
+    root.innerHTML = renderShell(`Не получилось загрузить данные: ${error?.message ?? 'unknown'}`)
+    throw error
+  }
+
+  if (type === 'recovery') root.innerHTML = renderRecovery(data)
+  else if (type === 'sleep')   root.innerHTML = renderSleep(data)
+  else if (type === 'hrv')     root.innerHTML = renderHrv(data)
+
+  /* ---------- Helpers (function declarations — хойстятся, доступны выше при первом вызове renderShell) ---------- */
+  function esc(s) {
+    return String(s ?? '').replace(/[&<>"']/g, (c) =>
+      ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))
+  }
+
+  function secsToHm(sec) {
+    if (sec == null) return '—'
+    const h = Math.floor(sec / 3600)
+    const m = Math.floor((sec % 3600) / 60)
+    if (h === 0) return `${m} мин`
+    return `${h} ч ${m} мин`
+  }
+
+  function pct(x, total) {
+    if (!x || !total) return 0
+    return Math.round((x / total) * 100)
+  }
+
+  function renderShell(body) {
+    return `
+      <header class="px-5 pt-6 pb-3 flex items-center gap-3">
+        <a href="/morning.html" class="w-10 h-10 rounded-full glass grid place-items-center active:scale-95 transition" aria-label="Назад">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--ink-2);">
+            <path d="M15 18l-6-6 6-6"/>
+          </svg>
+        </a>
+        <h1 class="c-ink-2 text-[20px] font-bold tracking-tight">${esc(TITLES[type] || '')}</h1>
+      </header>
+      <main class="px-5 pb-10">${body}</main>`
+  }
+
+  function renderRecovery(d) {
+    const t = d.today, tr = d.trends
+    const bandLabel = t.band === 'high' ? 'высокая' : t.band === 'mid' ? 'средняя' : 'низкая'
+    const bandColor = t.band === 'high' ? 'oklch(0.55 0.13 145)' : t.band === 'mid' ? 'oklch(0.74 0.13 80)' : 'oklch(0.60 0.18 25)'
+
+    return renderShell(`
+      <section class="glass rounded-2xl p-5 mb-4">
+        <div class="flex items-baseline gap-3">
+          <div class="c-ink-2 text-[56px] font-extrabold leading-none num tracking-tight">${t.score}<span class="text-[24px] opacity-55">%</span></div>
+          <div class="text-[13px] font-semibold uppercase tracking-eyebrow" style="color: ${bandColor};">${bandLabel} зона</div>
+        </div>
+        <div class="c-text-2 text-[13px] mt-2">Готовность нервной системы и тела к нагрузкам сегодня.</div>
+      </section>
+
+      <section class="glass rounded-2xl p-5 mb-4">
+        <div class="c-text-3 text-[10.5px] tracking-eyebrow uppercase font-semibold mb-2">Что значит сегодня</div>
+        <p class="c-ink-2 text-[14px] leading-[1.5]">${esc(d.explanation)}</p>
+      </section>
+
+      <section class="glass rounded-2xl overflow-hidden mb-4">
+        <div class="px-4 py-3 c-text-3 text-[10.5px] tracking-eyebrow uppercase font-semibold">Из чего сложился балл</div>
+        ${rowRecovery('HRV', t.hrv_ms != null ? Math.round(t.hrv_ms) + ' мс' : '—', 'вариабельность ритма сердца')}
+        ${rowRecovery('Пульс покоя', t.resting_hr != null ? t.resting_hr + ' уд/мин' : '—', 'ЧСС в самой глубокой фазе сна')}
+        ${rowRecovery('Дыхание ночью', t.respiratory_rate != null ? t.respiratory_rate.toFixed(1) + ' /мин' : '—', 'частота во время сна')}
+        ${rowRecovery('SpO₂', t.spo2_pct != null ? t.spo2_pct.toFixed(1) + ' %' : '—', 'насыщение крови кислородом')}
+        ${rowRecovery('Темп. кожи', t.skin_temp_c != null ? t.skin_temp_c.toFixed(1) + ' °C' : '—', 'может отражать стресс или начало болезни')}
+      </section>
+
+      <section class="glass rounded-2xl p-5 mb-4">
+        <div class="c-text-3 text-[10.5px] tracking-eyebrow uppercase font-semibold mb-3">Динамика</div>
+        ${trendRow('Recovery, 7 дней', tr.recovery_7d, '%')}
+        ${trendRow('HRV, 7 дней', tr.hrv_7d, 'мс')}
+        ${trendRow('HRV, 30 дней', tr.hrv_30d, 'мс')}
+        ${trendRow('Пульс покоя, 7 дней', tr.rhr_7d, 'уд/мин')}
+      </section>
+
+      <section class="glass rounded-2xl p-5">
+        <div class="c-text-3 text-[10.5px] tracking-eyebrow uppercase font-semibold mb-2">Что такое Recovery</div>
+        <p class="c-text-2 text-[13px] leading-[1.5]">Whoop Recovery — суммарная оценка готовности дня (0-100%). Считается из HRV, пульса покоя, длительности сна, температуры кожи и дыхания за прошедшую ночь — сравнивается с вашими личными последними неделями. Зоны: 0-33 низкая (тело просит отдыха), 34-66 средняя, 67-100 высокая (готов к нагрузке).</p>
+      </section>
+    `)
+  }
+
+  function rowRecovery(label, value, hint) {
+    return `
+      <div class="px-4 py-3 border-t row-divider" style="border-color: rgba(40,55,45,0.08);">
+        <div class="flex items-baseline justify-between">
+          <span class="c-ink-2 text-[14px] font-semibold">${esc(label)}</span>
+          <span class="c-ink-2 text-[15px] font-bold num">${esc(value)}</span>
+        </div>
+        <div class="c-text-3 text-[11.5px] mt-0.5">${esc(hint)}</div>
+      </div>`
+  }
+
+  function trendRow(label, r, unit) {
+    if (!r || r.count === 0) return `<div class="text-[13px] c-text-3 py-1">${esc(label)}: данных пока нет</div>`
+    return `
+      <div class="py-1.5 text-[13px] c-text-2 flex justify-between gap-3">
+        <span class="c-ink-2">${esc(label)}</span>
+        <span class="num">ср. ${r.avg} ${unit}, ${r.min}–${r.max} (n=${r.count})</span>
+      </div>`
+  }
+
+  function renderSleep(d) {
+    const t = d.today, tr = d.trends
+    const totalStages = (t.light_seconds ?? 0) + (t.deep_seconds ?? 0) + (t.rem_seconds ?? 0) + (t.awake_seconds ?? 0)
+    const segs = totalStages > 0 ? `
+      <div class="stage-bar">
+        <span class="stage-light" style="width: ${pct(t.light_seconds, totalStages)}%;"></span>
+        <span class="stage-deep"  style="width: ${pct(t.deep_seconds,  totalStages)}%;"></span>
+        <span class="stage-rem"   style="width: ${pct(t.rem_seconds,   totalStages)}%;"></span>
+        <span class="stage-awake" style="width: ${pct(t.awake_seconds, totalStages)}%;"></span>
+      </div>
+      <div class="flex justify-between text-[10.5px] c-text-3 mt-2">
+        <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-sm stage-light"></span>Light</span>
+        <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-sm stage-deep"></span>Deep</span>
+        <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-sm stage-rem"></span>REM</span>
+        <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-sm stage-awake"></span>Awake</span>
+      </div>` : ''
+
+    return renderShell(`
+      <section class="glass rounded-2xl p-5 mb-4">
+        <div class="c-ink-2 text-[40px] font-extrabold leading-none num tracking-tight">${secsToHm(t.asleep_seconds)}</div>
+        <div class="c-text-2 text-[13px] mt-1">${esc(t.bedtime_local)} → ${esc(t.wake_local)} (${secsToHm(t.in_bed_seconds)} в кровати)</div>
+      </section>
+
+      <section class="glass rounded-2xl p-5 mb-4">
+        <div class="c-text-3 text-[10.5px] tracking-eyebrow uppercase font-semibold mb-2">Что значит сегодня</div>
+        <p class="c-ink-2 text-[14px] leading-[1.5]">${esc(d.explanation)}</p>
+      </section>
+
+      <section class="glass rounded-2xl p-5 mb-4">
+        <div class="c-text-3 text-[10.5px] tracking-eyebrow uppercase font-semibold mb-3">Архитектура ночи</div>
+        ${segs}
+        <div class="mt-4 space-y-1.5 text-[13px]">
+          ${stageRow('Light', t.light_seconds, totalStages, 'переходные фазы, лёгкий сон')}
+          ${stageRow('Deep', t.deep_seconds, totalStages, 'физическое восстановление, медленноволновый')}
+          ${stageRow('REM', t.rem_seconds, totalStages, 'обработка опыта, память')}
+          ${stageRow('Awake', t.awake_seconds, totalStages, 'время без сна в кровати')}
+        </div>
+      </section>
+
+      <section class="glass rounded-2xl overflow-hidden mb-4">
+        <div class="px-4 py-3 c-text-3 text-[10.5px] tracking-eyebrow uppercase font-semibold">Качество и контекст</div>
+        ${kvRow('Эффективность сна', t.sleep_efficiency_pct != null ? Math.round(t.sleep_efficiency_pct) + ' %' : '—', '% времени в кровати, проведённого спя')}
+        ${kvRow('Покрытие потребности', t.sleep_performance_pct != null ? Math.round(t.sleep_performance_pct) + ' %' : '—', 'сколько из нужного тебе вчера сна ты получил')}
+        ${kvRow('Регулярность', t.sleep_consistency_pct != null ? Math.round(t.sleep_consistency_pct) + ' %' : '—', 'насколько стабильно время отбоя и пробуждения')}
+        ${kvRow('Долг сна', t.sleep_debt_seconds != null ? secsToHm(t.sleep_debt_seconds) : '—', 'недоспанные часы, накопленные за последние ночи')}
+        ${kvRow('Циклы сна', t.sleep_cycle_count != null ? String(t.sleep_cycle_count) : '—', 'обычно 4-6 за здоровую ночь')}
+        ${kvRow('Пробуждения', t.disturbance_count != null ? String(t.disturbance_count) : '—', 'эпизоды бодрствования')}
+        ${kvRow('Дыхание ночью', t.respiratory_rate != null ? t.respiratory_rate.toFixed(1) + ' /мин' : '—', 'частота дыхания во сне')}
+      </section>
+
+      <section class="glass rounded-2xl p-5 mb-4">
+        <div class="c-text-3 text-[10.5px] tracking-eyebrow uppercase font-semibold mb-3">Динамика</div>
+        ${trendRow('Длительность сна, 7 дней', tr.asleep_hours_7d, 'ч')}
+        ${trendRow('Эффективность, 7 дней', tr.efficiency_7d, '%')}
+        ${trendRow('Покрытие потребности, 7 дней', tr.performance_7d, '%')}
+      </section>
+
+      <section class="glass rounded-2xl p-5">
+        <div class="c-text-3 text-[10.5px] tracking-eyebrow uppercase font-semibold mb-2">Что нужно знать про стадии</div>
+        <p class="c-text-2 text-[13px] leading-[1.5]">Здоровый сон взрослого: light 45-55%, deep 15-20%, REM 20-25%, awake до 5%. Deep тянется к началу ночи и отвечает за физическое восстановление и иммунитет. REM сосредоточен под утро, отвечает за память и эмоциональную регуляцию. С возрастом deep уменьшается, light растёт — это норма.</p>
+      </section>
+    `)
+  }
+
+  function stageRow(label, sec, total, hint) {
+    if (sec == null) return ''
+    const p = total > 0 ? Math.round((sec / total) * 100) : 0
+    return `
+      <div class="flex items-baseline justify-between">
+        <div>
+          <span class="c-ink-2 font-semibold">${esc(label)}</span>
+          <span class="c-text-3 text-[11.5px] ml-1">${esc(hint)}</span>
+        </div>
+        <span class="c-ink-2 num font-semibold">${secsToHm(sec)} · ${p}%</span>
+      </div>`
+  }
+
+  function kvRow(label, value, hint) {
+    return `
+      <div class="px-4 py-3 border-t row-divider" style="border-color: rgba(40,55,45,0.08);">
+        <div class="flex items-baseline justify-between">
+          <span class="c-ink-2 text-[14px] font-semibold">${esc(label)}</span>
+          <span class="c-ink-2 text-[15px] font-bold num">${esc(value)}</span>
+        </div>
+        <div class="c-text-3 text-[11.5px] mt-0.5">${esc(hint)}</div>
+      </div>`
+  }
+
+  function renderHrv(d) {
+    const t = d.today, tr = d.trends
+    return renderShell(`
+      <section class="glass rounded-2xl p-5 mb-4">
+        <div class="c-ink-2 text-[56px] font-extrabold leading-none num tracking-tight">${t.hrv_ms != null ? Math.round(t.hrv_ms) : '—'}<span class="text-[20px] opacity-55"> мс</span></div>
+        <div class="c-text-2 text-[13px] mt-1">RMSSD за прошедшую ночь</div>
+      </section>
+
+      <section class="glass rounded-2xl p-5 mb-4">
+        <div class="c-text-3 text-[10.5px] tracking-eyebrow uppercase font-semibold mb-2">Что значит сегодня</div>
+        <p class="c-ink-2 text-[14px] leading-[1.5]">${esc(d.explanation)}</p>
+      </section>
+
+      <section class="glass rounded-2xl p-5 mb-4">
+        <div class="c-text-3 text-[10.5px] tracking-eyebrow uppercase font-semibold mb-3">Личный диапазон</div>
+        ${trendRow('За 7 дней', tr.hrv_7d, 'мс')}
+        ${trendRow('За 14 дней', tr.hrv_14d, 'мс')}
+        ${trendRow('За 30 дней', tr.hrv_30d, 'мс')}
+      </section>
+
+      <section class="glass rounded-2xl p-5">
+        <div class="c-text-3 text-[10.5px] tracking-eyebrow uppercase font-semibold mb-2">Что такое HRV</div>
+        <p class="c-text-2 text-[13px] leading-[1.5]">HRV — вариабельность интервалов между ударами сердца. Чем выше HRV, тем сильнее тонус парасимпатики (нерв «отдыха»). Снижается при стрессе, плохом сне, болезни, обезвоживании, перегрузке. RMSSD — наиболее распространённая мера HRV для оценки восстановления, измеряется в миллисекундах. Личная норма важнее любых усреднённых таблиц: следи за смещением своего собственного среднего, а не за абсолютным значением.</p>
+      </section>
+    `)
+  }
+</script>
+
+</body>
+</html>

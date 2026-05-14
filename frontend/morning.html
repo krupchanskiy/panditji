@@ -492,16 +492,16 @@
         </div>
 
         <div class="grid grid-cols-3 gap-2">
-          <div class="glass-sage rounded-2xl p-3">
+          <a href="/metric.html?type=recovery" class="glass-sage rounded-2xl p-3 active:scale-[0.98] transition block">
             <div class="flex items-center justify-between">
               <span class="c-sage-deep text-[10px] tracking-eyebrow uppercase font-semibold">Rec</span>
               <div class="ring" style="color: var(--sage-deep); --p: ${recovery};"></div>
             </div>
             <div class="c-ink-2 mt-2.5 text-[24px] font-extrabold num leading-none tracking-tight">${recovery}<span class="text-[13px] font-semibold opacity-55">%</span></div>
             <div class="c-sage-deep mt-1 text-[10.5px] font-semibold">${recoveryBand(recovery)}</div>
-          </div>
+          </a>
 
-          <div class="glass rounded-2xl p-3">
+          <a href="/metric.html?type=sleep" class="glass rounded-2xl p-3 active:scale-[0.98] transition block">
             <div class="flex items-center justify-between">
               <span class="c-text-2 text-[10px] tracking-eyebrow uppercase font-semibold">Сон</span>
               <div class="ring" style="color: var(--ink-soft); --p: ${sleepEfficiency};"></div>
@@ -510,16 +510,16 @@
               ${duration.h}<span class="text-[13px] font-semibold opacity-55">ч</span> ${duration.m}<span class="text-[13px] font-semibold opacity-55">м</span>
             </div>
             <div class="c-text-2 mt-1 text-[10.5px] font-semibold">${sleepEfficiency != null ? `эфф. ${sleepEfficiency}%` : '—'}</div>
-          </div>
+          </a>
 
-          <div class="glass-gold rounded-2xl p-3">
+          <a href="/metric.html?type=hrv" class="glass-gold rounded-2xl p-3 active:scale-[0.98] transition block">
             <div class="flex items-center justify-between">
               <span class="c-gold-deep text-[10px] tracking-eyebrow uppercase font-semibold">HRV</span>
               <div class="ring" style="color: oklch(0.60 0.12 70); --p: ${hrvNormPosition};"></div>
             </div>
             <div class="c-ink-2 mt-2.5 text-[24px] font-extrabold num leading-none tracking-tight">${hrv != null ? hrv : '—'}<span class="text-[13px] font-semibold opacity-55">мс</span></div>
             <div class="c-gold-deep mt-1 text-[10.5px] font-semibold">норма 50–65</div>
-          </div>
+          </a>
         </div>
       </section>`;
   }
