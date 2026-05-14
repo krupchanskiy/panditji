@@ -139,11 +139,11 @@
   .cell.today.selected { color: white; }
   .cell.ekadasi { background: linear-gradient(160deg, var(--terra), oklch(0.66 0.13 25)); color: white; font-weight: 700; box-shadow: 0 4px 10px -6px oklch(0.65 0.12 28 / 0.40); }
   .cell.holiday { background: linear-gradient(160deg, var(--gold), oklch(0.68 0.115 70)); color: white; font-weight: 700; box-shadow: 0 4px 10px -6px oklch(0.65 0.12 75 / 0.40); }
-  .cell .dot {
-    position: absolute; bottom: 6px; left: 50%; transform: translateX(-50%);
-    width: 4px; height: 4px; border-radius: 50%; background: var(--lav-deep);
+  /* Бледно-жёлтая нейтральная плашка — для всех явлений/уходов кроме главных */
+  .cell.minor {
+    background: linear-gradient(160deg, oklch(0.96 0.025 85 / 0.9), oklch(0.93 0.04 80 / 0.75));
+    border: 1px solid color-mix(in oklch, oklch(0.70 0.08 78) 18%, transparent);
   }
-  .cell.selected .dot, .cell.ekadasi .dot, .cell.holiday .dot { background: rgba(255,255,255,0.85); }
 
   /* Legend */
   .legend {
@@ -155,7 +155,7 @@
   .legend .swatch { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; vertical-align: middle; }
   .legend .swatch.ek { background: linear-gradient(160deg, var(--terra), oklch(0.66 0.13 25)); }
   .legend .swatch.hol { background: linear-gradient(160deg, var(--gold), oklch(0.68 0.115 70)); }
-  .legend .swatch.fest { background: var(--lav-deep); }
+  .legend .swatch.fest { background: linear-gradient(160deg, oklch(0.96 0.025 85), oklch(0.93 0.04 80)); border: 1px solid color-mix(in oklch, oklch(0.70 0.08 78) 25%, transparent); }
 
   .divider { position: relative; z-index: 1; height: 1px; margin: 12px 22px; background: var(--hairline); }
 
@@ -473,7 +473,7 @@
         we: wd >= 5,
         ekadasi: !!flags?.isEkadasi,
         holiday: !!flags?.isMajor,
-        hasDot: !!flags?.hasDot,
+        minor: !!flags?.isMinor,
         today: iso === today,
         selected: iso === selectedDate,
       })
@@ -497,9 +497,9 @@
       if (c.today) classes.push('today')
       if (c.selected) classes.push('selected')
       if (c.ekadasi) classes.push('ekadasi')
-      if (c.holiday) classes.push('holiday')
-      const dot = c.hasDot ? '<span class="dot"></span>' : ''
-      return `<button class="${classes.join(' ')}" data-iso="${c.iso}">${c.d}${dot}</button>`
+      else if (c.holiday) classes.push('holiday')
+      else if (c.minor) classes.push('minor')
+      return `<button class="${classes.join(' ')}" data-iso="${c.iso}">${c.d}</button>`
     }).join('')
 
     grid.querySelectorAll('button[data-iso]').forEach(btn => {

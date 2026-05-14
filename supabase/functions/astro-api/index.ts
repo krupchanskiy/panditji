@@ -220,14 +220,32 @@ Deno.serve(async (req) => {
       isEkadasi: boolean,
       isMajor: boolean,
       hasDot: boolean,
+      isMinor: boolean,
       eventNames: string[],
       panchanga: any,
     }> = {}
 
-    // Известные большие праздники по названию — мажорные.
-    const MAJOR_KEYWORDS = ['Джанмаштами', 'Гаура-пурнима', 'Нрисимха', 'Рама-навами', 'Радхаштами', 'Баларама-пурнима', 'Нитьянанда', 'Ратха-ятра', 'Говардхана', 'Гуру (Вьяса)']
-    function isMajor(name: string): boolean {
-      return MAJOR_KEYWORDS.some(k => name.includes(k))
+    // Большие праздники: явления/уходы Господа и Шрилы Прабхупады, главные сезонные.
+    // case-insensitive по подстроке. Ловим и кириллицу, и латиницу — часть имён в БД
+    // приходит непереведённой (Lord Balarama, Srila Prabhupada — Disappearance, …).
+    const MAJOR_KEYWORDS_LC = [
+      // Кириллица (переведённые имена из name_map.py)
+      'джанмаштами', 'гаура-пурнима', 'нрисимха', 'рама-навами', 'радхаштами',
+      'баларама', 'нитьянанда', 'ратха-ятра', 'говардхана', 'гуру (вьяса)',
+      'прабхупада', 'бхактисиддханта', 'бхактивинода',
+      'варта-двадаши', 'вамана-двадаши',
+      // Латиница (непереведённые — gaurabda даёт)
+      'janmastami', 'gaura purnima', 'nrsimha', 'rama navami', 'radhastami',
+      'balarama', 'nityananda', 'ratha yatra', 'govardhana', 'guru (vyasa)',
+      'prabhupada', 'bhaktisiddhanta', 'bhaktivinoda',
+      'varaha dvadasi', 'vamana dvadasi',
+    ]
+    function isMajor(name: string, eventType: string): boolean {
+      // Майор — только реальные явления/уходы и пурнимы. «departure for the USA» и пр.
+      // относятся к event_type='other' и остаются minor.
+      if (eventType !== 'appearance' && eventType !== 'disappearance' && eventType !== 'purnima') return false
+      const lc = (name || '').toLowerCase()
+      return MAJOR_KEYWORDS_LC.some(k => lc.includes(k))
     }
 
     for (const p of (panchangaRes.data ?? [])) {
@@ -235,7 +253,8 @@ Deno.serve(async (req) => {
         date: p.date,
         isEkadasi: false,
         isMajor: false,
-        hasDot: false,
+        hasDot: false,    // оставлено для совместимости, не используется фронтом
+        isMinor: false,   // любое appearance/disappearance — мягкая жёлтая плашка
         eventNames: [],
         panchanga: p,
       }
@@ -243,12 +262,16 @@ Deno.serve(async (req) => {
     for (const ev of (eventsRes.data ?? [])) {
       const d = ev.event_date
       if (!days[d]) {
-        days[d] = { date: d, isEkadasi: false, isMajor: false, hasDot: false, eventNames: [], panchanga: null }
+        days[d] = { date: d, isEkadasi: false, isMajor: false, hasDot: false, isMinor: false, eventNames: [], panchanga: null }
       }
       const slot = days[d]
-      if (ev.event_type === 'ekadashi') slot.isEkadasi = true
-      else if (isMajor(ev.event_name)) slot.isMajor = true
-      else if (ev.event_type === 'appearance' || ev.event_type === 'disappearance') slot.hasDot = true
+      if (ev.event_type === 'ekadashi') {
+        slot.isEkadasi = true
+      } else if (isMajor(ev.event_name, ev.event_type)) {
+        slot.isMajor = true
+      } else if (ev.event_type === 'appearance' || ev.event_type === 'disappearance' || ev.event_type === 'other') {
+        slot.isMinor = true
+      }
       slot.eventNames.push(ev.event_name)
     }
 
