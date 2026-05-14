@@ -266,8 +266,8 @@
   const tz    = location.timezone
   const today = localDate(tz)
 
-  /* Список дел + отметки + погода + статусы OAuth + утреннее сообщение — параллельно. */
-  const [{ data: todoDefs }, { data: completions }, weatherRes, { data: oauthRows }, messageRes] = await Promise.all([
+  /* Список дел + отметки + погода + статусы OAuth + утреннее сообщение + вайшнавский календарь — параллельно. */
+  const [{ data: todoDefs }, { data: completions }, weatherRes, { data: oauthRows }, messageRes, astroRes] = await Promise.all([
     db.from('daily_todos')
       .select('id, todo_key, emoji, emoji_variant, label, sort_order')
       .eq('is_active', true)
@@ -278,6 +278,7 @@
     db.functions.invoke('weather'),
     db.from('oauth_tokens').select('provider, is_active'),
     db.functions.invoke('morning-message'),
+    db.functions.invoke('astro-api'),
   ])
   const doneSet = new Set(completions.map((c) => c.todo_id))
   const temperature = weatherRes.error
@@ -373,9 +374,43 @@
     db.functions.invoke('google-fetch').catch((e) => console.warn('google-fetch bg failed', e))
   }
 
-  /* Состояние экрана. Блоки с пометкой MOCK подцепим в следующих фазах:
-     Whoop (sleep), Google Calendar (events), gaurabda (ekadasi),
-     Claude API + memories (panditjiMessage), weather API (temperature). */
+  /* Ближайшая экадаши: блок всегда виден.
+     - Близко (≤3 дня): «Завтра · паран 16 мая · 09:14–09:42»
+     - Далеко: «Через 13 дн · Падмини Экадаши · 27 мая» — без paran-окна. */
+  const ekadashiCard = (() => {
+    const ek = astroRes?.data?.upcoming_ekadashi
+    if (!ek) return null
+    const eventDate = ek.event_date
+    const todayDate = astroRes.data.today || today
+    const diffDays = Math.round(
+      (new Date(eventDate + 'T00:00:00Z').getTime() - new Date(todayDate + 'T00:00:00Z').getTime())
+      / (24 * 3600 * 1000)
+    )
+    const badge = diffDays === 0 ? 'Сегодня' : diffDays === 1 ? 'Завтра' : `Через ${diffDays} дн`
+    const fmtDate = new Intl.DateTimeFormat('ru-RU', { timeZone: tz, day: 'numeric', month: 'long' })
+
+    if (diffDays > 3) {
+      const ekDateStr = fmtDate.format(new Date(eventDate + 'T12:00:00Z'))
+      return { name: ek.event_name, badge, isFar: true, ekDate: ekDateStr }
+    }
+
+    const paranStart = ek.paran_start_at
+    const paranEnd = ek.paran_end_at
+    if (!paranStart) return { name: ek.event_name, badge, isFar: false, paranDate: '—', paranWindow: '—' }
+    const fmtTime = new Intl.DateTimeFormat('ru-RU', { timeZone: tz, hour: '2-digit', minute: '2-digit', hour12: false })
+    const paranWindow = paranEnd
+      ? `${fmtTime.format(new Date(paranStart))}–${fmtTime.format(new Date(paranEnd))}`
+      : `с ${fmtTime.format(new Date(paranStart))}`
+    return {
+      name: ek.event_name,
+      badge,
+      isFar: false,
+      paranDate: fmtDate.format(new Date(paranStart)),
+      paranWindow,
+    }
+  })()
+
+  /* Состояние экрана. */
   const STATE = {
     date:     formatHeaderDate(tz),
     location: { name: location.name, temperature },
@@ -386,11 +421,11 @@
     sleep,
     googleConnected,
     events,
-    ekadasi: {
-      name:        'Падмини Экадаши',
-      paranDate:   '16 мая',
-      paranWindow: '09:14–09:42',
-    },
+    ekadasi: ekadashiCard,
+    vaishnavaToday: (astroRes?.data?.today_events ?? []).map(ev => ({
+      type: ev.event_type,
+      name: ev.event_name,
+    })),
     todos: todoDefs.map((t) => ({
       id:           t.id,
       emoji:        t.emoji,
@@ -567,8 +602,27 @@
       ${isLast ? '' : '<div class="h-px mx-4 row-divider"></div>'}`;
   }
 
+  function renderVaishnavaToday(s) {
+    if (!s.vaishnavaToday || s.vaishnavaToday.length === 0) return '';
+    const TYPE_LABELS = {
+      appearance: 'Явление',
+      disappearance: 'Уход',
+      purnima: 'Пурнима',
+      amavasya: 'Амавасья',
+      caturmasya_start: 'Чатурмасья — начало',
+      caturmasya_end:   'Чатурмасья — конец',
+    };
+    const rows = s.vaishnavaToday.map(ev => `
+      <div class="flex items-center gap-2 py-1">
+        <span class="c-terra-deep text-[10px] tracking-eyebrow uppercase font-bold flex-none">${esc(TYPE_LABELS[ev.type] || ev.type)}</span>
+        <span class="c-ink-2 text-[13px] font-semibold flex-1">${esc(ev.name)}</span>
+      </div>`).join('');
+    return `<div class="glass rounded-2xl mt-2.5 px-4 py-2.5">${rows}</div>`;
+  }
+
   function renderEvents(s) {
     const ekadasi = s.ekadasi ? renderEkadasi(s.ekadasi) : '';
+    const vaishnava = renderVaishnavaToday(s);
 
     if (!s.googleConnected) {
       return `
@@ -582,6 +636,7 @@
             <span class="c-terra-deep text-[11px] tracking-eyebrow uppercase font-bold mt-1">Открыть авторизацию →</span>
           </button>
           ${ekadasi}
+          ${vaishnava}
         </section>`;
     }
 
@@ -601,6 +656,7 @@
         </div>
         ${body}
         ${ekadasi}
+        ${vaishnava}
       </section>`;
   }
 
@@ -613,22 +669,34 @@
   }
 
   function renderEkadasi(e) {
+    const badge = e.badge || 'Завтра';
+    const detail = e.isFar
+      ? `<div class="c-text-2 text-[12px] mt-0.5 num font-medium">${esc(e.ekDate)}</div>`
+      : `<div class="c-text-2 text-[12px] mt-0.5 num font-medium">паран ${esc(e.paranDate)} · <span class="c-terra-deep font-bold">${esc(e.paranWindow)}</span></div>`;
     return `
       <div class="glass-terra rounded-2xl mt-2.5 px-4 py-3.5 flex items-start gap-3 relative overflow-hidden">
         <div class="ekadasi-orb absolute -right-6 -bottom-6 w-24 h-24 rounded-full opacity-50"></div>
+        <a href="/calendar.html" aria-label="Открыть календарь"
+           class="absolute top-2.5 right-2.5 z-10 w-8 h-8 rounded-lg grid place-items-center transition active:scale-95"
+           style="color: var(--terra-deep);">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/>
+            <path d="M3.5 10.5h17M8 3v4M16 3v4"/>
+          </svg>
+        </a>
         <div class="ekadasi-icon relative flex-none w-9 h-9 rounded-xl grid place-items-center">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round">
             <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
           </svg>
         </div>
-        <div class="relative flex-1">
+        <div class="relative flex-1 pr-8">
           <div class="flex items-center gap-2">
-            <span class="c-terra-deep text-[10px] tracking-eyebrow uppercase font-bold">Завтра</span>
+            <span class="c-terra-deep text-[10px] tracking-eyebrow uppercase font-bold">${esc(badge)}</span>
             <span class="w-1 h-1 rounded-full" style="background: var(--terra);"></span>
-            <span class="c-terra-deep text-[10px] tracking-eyebrow uppercase font-semibold" style="opacity: 0.7;">пост</span>
+            <span class="c-terra-deep text-[10px] tracking-eyebrow uppercase font-semibold" style="opacity: 0.7;">${e.isFar ? 'экадаши' : 'пост'}</span>
           </div>
           <div class="c-ink-2 text-[15px] font-bold mt-0.5">${esc(e.name)}</div>
-          <div class="c-text-2 text-[12px] mt-0.5 num font-medium">паран ${esc(e.paranDate)} · <span class="c-terra-deep font-bold">${esc(e.paranWindow)}</span></div>
+          ${detail}
         </div>
       </div>`;
   }
