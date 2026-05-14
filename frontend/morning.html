@@ -265,8 +265,8 @@
   const tz    = location.timezone
   const today = localDate(tz)
 
-  /* Список дел + отметки выполнения за сегодня + погода — параллельно. */
-  const [{ data: todoDefs }, { data: completions }, weatherRes, whoopTokRes] = await Promise.all([
+  /* Список дел + отметки выполнения за сегодня + погода + статусы OAuth — параллельно. */
+  const [{ data: todoDefs }, { data: completions }, weatherRes, { data: oauthRows }] = await Promise.all([
     db.from('daily_todos')
       .select('id, todo_key, emoji, emoji_variant, label, sort_order')
       .eq('is_active', true)
@@ -275,16 +275,15 @@
       .select('todo_id')
       .eq('date', today),
     db.functions.invoke('weather'),
-    db.from('oauth_tokens')
-      .select('is_active')
-      .eq('provider', 'whoop')
-      .maybeSingle(),
+    db.from('oauth_tokens').select('provider, is_active'),
   ])
   const doneSet = new Set(completions.map((c) => c.todo_id))
   const temperature = weatherRes.error
     ? null
     : Math.round(weatherRes.data.temperature_c)
-  const whoopConnected = !!whoopTokRes.data?.is_active
+  const oauthActive = new Map((oauthRows ?? []).map((r) => [r.provider, r.is_active]))
+  const whoopConnected = oauthActive.get('whoop') === true
+  const googleConnected = oauthActive.get('google') === true
 
   /* Если Whoop подключён — тянем последнюю запись recovery + связанный сон. */
   let sleep = null
@@ -330,6 +329,48 @@
     db.functions.invoke('whoop-fetch').catch((e) => console.warn('whoop-fetch bg failed', e))
   }
 
+  /* События сегодня из Google Calendar. */
+  let events = []
+  if (googleConnected) {
+    const sinceIso = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
+    const untilIso = new Date(Date.now() + 36 * 60 * 60 * 1000).toISOString()
+    const { data: rawEvents } = await db
+      .from('calendar_events')
+      .select('title, start_at, end_at, is_all_day, location_text')
+      .gte('start_at', sinceIso)
+      .lte('start_at', untilIso)
+      .is('deleted_at', null)
+      .order('start_at')
+
+    events = (rawEvents ?? [])
+      .filter((ev) => {
+        const evLocalDate = new Intl.DateTimeFormat('en-CA', {
+          timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit',
+        }).format(new Date(ev.start_at))
+        return evLocalDate === today
+      })
+      .map((ev, i) => {
+        const start = new Date(ev.start_at)
+        const end = ev.end_at ? new Date(ev.end_at) : null
+        const timeStr = ev.is_all_day
+          ? 'весь день'
+          : new Intl.DateTimeFormat('ru-RU', {
+              timeZone: tz, hour: '2-digit', minute: '2-digit', hour12: false,
+            }).format(start)
+        const duration = (!ev.is_all_day && end)
+          ? formatDuration((end.getTime() - start.getTime()) / 1000)
+          : ''
+        return {
+          time: timeStr,
+          title: ev.title,
+          duration,
+          accent: i % 2 === 0 ? 'sage' : 'terra',
+        }
+      })
+
+    db.functions.invoke('google-fetch').catch((e) => console.warn('google-fetch bg failed', e))
+  }
+
   /* Состояние экрана. Блоки с пометкой MOCK подцепим в следующих фазах:
      Whoop (sleep), Google Calendar (events), gaurabda (ekadasi),
      Claude API + memories (panditjiMessage), weather API (temperature). */
@@ -341,10 +382,8 @@
       '<em>Уттара Бхадрапада</em> сегодня вяжет терпением: подходящий день читать без спешки.',
     whoopConnected,
     sleep,
-    events: [
-      { time: '10:00', title: 'Звонок с Иваном',     duration: '45 минут', accent: 'sage'  },
-      { time: '15:00', title: 'Онлайн-консультация', duration: '1 час',    accent: 'terra' },
-    ],
+    googleConnected,
+    events,
     ekadasi: {
       name:        'Падмини Экадаши',
       paranDate:   '16 мая',
@@ -371,6 +410,22 @@
     if (score >= 67) return 'выше нормы';
     if (score >= 34) return 'в норме';
     return 'ниже нормы';
+  }
+
+  function pluralRu(n, one, few, many) {
+    const mod10 = n % 10, mod100 = n % 100;
+    if (mod10 === 1 && mod100 !== 11) return `${n} ${one}`;
+    if (mod10 >= 2 && mod10 <= 4 && (mod100 < 10 || mod100 >= 20)) return `${n} ${few}`;
+    return `${n} ${many}`;
+  }
+
+  function formatDuration(seconds) {
+    const minutes = Math.max(1, Math.round(seconds / 60));
+    if (minutes < 60) return pluralRu(minutes, 'минута', 'минуты', 'минут');
+    const h = Math.floor(minutes / 60);
+    const m = minutes % 60;
+    if (m === 0) return pluralRu(h, 'час', 'часа', 'часов');
+    return `${h} ч ${m} мин`;
   }
 
   /* ---------- Sections ---------- */
@@ -436,7 +491,7 @@
         <div class="grid grid-cols-3 gap-2">
           <div class="glass-sage rounded-2xl p-3">
             <div class="flex items-center justify-between">
-              <span class="c-sage-deep text-[10px] tracking-eyebrow uppercase font-semibold">Recov</span>
+              <span class="c-sage-deep text-[10px] tracking-eyebrow uppercase font-semibold">Rec</span>
               <div class="ring" style="color: var(--sage-deep); --p: ${recovery};"></div>
             </div>
             <div class="c-ink-2 mt-2.5 text-[24px] font-extrabold num leading-none tracking-tight">${recovery}<span class="text-[13px] font-semibold opacity-55">%</span></div>
@@ -510,16 +565,38 @@
   }
 
   function renderEvents(s) {
-    const count = s.events.length;
-    const list = s.events.map((ev, i) => renderEventRow(ev, i === count - 1)).join('');
     const ekadasi = s.ekadasi ? renderEkadasi(s.ekadasi) : '';
+
+    if (!s.googleConnected) {
+      return `
+        <section class="px-5 mt-7">
+          <div class="flex items-baseline justify-between mb-3">
+            <h2 class="c-ink-2 text-[17px] font-bold tracking-tight">Сегодня</h2>
+          </div>
+          <button data-action="connect-google" class="glass rounded-2xl w-full p-5 flex flex-col items-start gap-2 text-left active:scale-[0.99] transition">
+            <span class="c-ink-2 text-[15px] font-semibold">Подключи Google Calendar</span>
+            <span class="c-text-2 text-[12.5px] leading-snug">Покажу твоё сегодняшнее расписание. Дальше можно будет диктовать встречи в Telegram, я их сложу в календарь сам.</span>
+            <span class="c-terra-deep text-[11px] tracking-eyebrow uppercase font-bold mt-1">Открыть авторизацию →</span>
+          </button>
+          ${ekadasi}
+        </section>`;
+    }
+
+    const count = s.events.length;
+    const headerRight = count > 0
+      ? `<span class="c-text-3 text-[11px] font-medium">${count} ${pluralEvents(count)}</span>`
+      : '';
+    const body = count > 0
+      ? `<div class="glass rounded-2xl overflow-hidden">${s.events.map((ev, i) => renderEventRow(ev, i === count - 1)).join('')}</div>`
+      : `<div class="glass rounded-2xl p-4"><span class="c-text-2 text-[13px]">Сегодня встреч нет.</span></div>`;
+
     return `
       <section class="px-5 mt-7">
         <div class="flex items-baseline justify-between mb-3">
           <h2 class="c-ink-2 text-[17px] font-bold tracking-tight">Сегодня</h2>
-          <span class="c-text-3 text-[11px] font-medium">${count} ${pluralEvents(count)}</span>
+          ${headerRight}
         </div>
-        <div class="glass rounded-2xl overflow-hidden">${list}</div>
+        ${body}
         ${ekadasi}
       </section>`;
   }
@@ -624,6 +701,20 @@
     window.location.href = data.auth_url
   }
 
+  async function startGoogleConnect(btn) {
+    btn.disabled = true
+    btn.style.opacity = '0.6'
+    const { data, error } = await db.functions.invoke('google-init')
+    if (error || !data?.auth_url) {
+      console.error('google-init failed', error)
+      btn.disabled = false
+      btn.style.opacity = '1'
+      alert('Не получилось получить ссылку Google. Попробуй ещё раз чуть позже.')
+      return
+    }
+    window.location.href = data.auth_url
+  }
+
   document.addEventListener('click', (ev) => {
     const row = ev.target.closest('.todo-row');
     if (row) {
@@ -637,9 +728,14 @@
       toggleTodo(id, todo.done);
       return;
     }
-    const connectBtn = ev.target.closest('[data-action="connect-whoop"]');
-    if (connectBtn) {
-      startWhoopConnect(connectBtn);
+    const whoopBtn = ev.target.closest('[data-action="connect-whoop"]');
+    if (whoopBtn) {
+      startWhoopConnect(whoopBtn);
+      return;
+    }
+    const googleBtn = ev.target.closest('[data-action="connect-google"]');
+    if (googleBtn) {
+      startGoogleConnect(googleBtn);
       return;
     }
     const burger = ev.target.closest('#burger');
