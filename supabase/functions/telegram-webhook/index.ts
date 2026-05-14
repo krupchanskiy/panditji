@@ -28,6 +28,61 @@ async function sendTg(chatId: number, text: string): Promise<void> {
   })
 }
 
+async function sendTyping(chatId: number): Promise<void> {
+  const token = Deno.env.get('TELEGRAM_BOT_TOKEN')!
+  await fetch(`${TG_API}/bot${token}/sendChatAction`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ chat_id: chatId, action: 'typing' }),
+  })
+}
+
+async function transcribeVoice(fileId: string): Promise<string | null> {
+  const tgToken = Deno.env.get('TELEGRAM_BOT_TOKEN')!
+  const openaiKey = Deno.env.get('OPENAI_API_KEY')
+  if (!openaiKey) {
+    console.error('OPENAI_API_KEY not set')
+    return null
+  }
+
+  /* 1. Получаем путь к файлу у Telegram. */
+  const fileResp = await fetch(`${TG_API}/bot${tgToken}/getFile?file_id=${fileId}`)
+  if (!fileResp.ok) {
+    console.error('tg getFile failed', fileResp.status)
+    return null
+  }
+  const fileData = await fileResp.json() as { ok: boolean; result?: { file_path: string } }
+  if (!fileData.ok || !fileData.result?.file_path) return null
+
+  /* 2. Скачиваем .ogg голосового сообщения. */
+  const audioResp = await fetch(`${TG_API}/file/bot${tgToken}/${fileData.result.file_path}`)
+  if (!audioResp.ok) {
+    console.error('tg file download failed', audioResp.status)
+    return null
+  }
+  const audioBlob = await audioResp.blob()
+
+  /* 3. Отправляем в Whisper. */
+  const form = new FormData()
+  form.append('file', audioBlob, 'voice.ogg')
+  form.append('model', 'whisper-1')
+  form.append('language', 'ru')
+  form.append('response_format', 'json')
+
+  const whisperResp = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${openaiKey}` },
+    body: form,
+  })
+  if (!whisperResp.ok) {
+    const body = await whisperResp.text()
+    console.error('whisper failed', whisperResp.status, body)
+    return null
+  }
+  const result = await whisperResp.json() as { text?: string }
+  return result.text?.trim() || null
+}
+
 async function googleAccessToken(admin: SupabaseClient, userId: string): Promise<string | null> {
   const { data: tok } = await admin
     .from('oauth_tokens')
@@ -174,8 +229,22 @@ Deno.serve(async (req) => {
   if (!message) return ok()
 
   const chatId: number | undefined = message.chat?.id
-  const text: string | undefined = message.text
-  if (!chatId || !text) return ok()
+  if (!chatId) return ok()
+
+  /* Голос: пишем "печатает...", транскрибируем, пересказываем услышанное и дальше — как текст. */
+  let text: string | undefined = message.text
+  let transcript: string | null = null
+  if (!text && message.voice?.file_id) {
+    await sendTyping(chatId)
+    transcript = await transcribeVoice(message.voice.file_id)
+    if (!transcript) {
+      await sendTg(chatId, 'Не разобрал голос. Попробуй ещё раз или напиши текстом.')
+      return ok()
+    }
+    text = transcript
+    await sendTg(chatId, `Услышал: «${transcript}»`)
+  }
+  if (!text) return ok()
 
   const admin = createClient(
     Deno.env.get('SUPABASE_URL')!,
