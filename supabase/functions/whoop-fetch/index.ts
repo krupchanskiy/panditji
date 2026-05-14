@@ -140,9 +140,9 @@ Deno.serve(async (req) => {
   /* Тянем последние 7 дней по трём эндпоинтам. */
   const startIso = new Date(Date.now() - FETCH_DAYS_BACK * 86400_000).toISOString()
   const [sleepRes, recoveryRes, workoutRes] = await Promise.all([
-    whoopGet(accessToken, '/developer/v1/activity/sleep',   { start: startIso, limit: '25' }),
-    whoopGet(accessToken, '/developer/v1/recovery',         { start: startIso, limit: '25' }),
-    whoopGet(accessToken, '/developer/v1/activity/workout', { start: startIso, limit: '25' }),
+    whoopGet(accessToken, '/developer/v2/activity/sleep',   { start: startIso, limit: '25' }),
+    whoopGet(accessToken, '/developer/v2/recovery',         { start: startIso, limit: '25' }),
+    whoopGet(accessToken, '/developer/v2/activity/workout', { start: startIso, limit: '25' }),
   ])
 
   const result = {
@@ -157,14 +157,17 @@ Deno.serve(async (req) => {
   for (const raw of sleepRes.records as Array<Record<string, any>>) {
     const stage = raw.score?.stage_summary ?? {}
     const score = raw.score ?? {}
-    const inBedMs = stage.total_in_bed_time_milli
+    /* duration_seconds = время фактического сна (без awake), а не время в кровати. */
+    const asleepMs = (stage.total_light_sleep_time_milli ?? 0)
+                   + (stage.total_slow_wave_sleep_time_milli ?? 0)
+                   + (stage.total_rem_sleep_time_milli ?? 0)
     const { error } = await admin.from('whoop_sleeps').upsert({
       user_id: user.id,
       whoop_id: String(raw.id),
       start_at: raw.start,
       end_at: raw.end,
       timezone_offset: raw.timezone_offset ?? '+00:00',
-      duration_seconds: ms2s(inBedMs) ?? 0,
+      duration_seconds: asleepMs > 0 ? Math.round(asleepMs / 1000) : (ms2s(stage.total_in_bed_time_milli) ?? 0),
       sleep_efficiency: score.sleep_efficiency_percentage ?? null,
       sleep_performance: score.sleep_performance_percentage ?? null,
       light_sleep_seconds: ms2s(stage.total_light_sleep_time_milli),

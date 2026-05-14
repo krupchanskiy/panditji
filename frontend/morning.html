@@ -365,6 +365,14 @@
 
   const tempStr = (t) => (t == null ? '—' : `${t > 0 ? '+' : ''}${t}°`);
 
+  /* Whoop-полосы Recovery: 0-33 красная (низкая), 34-66 жёлтая, 67-100 зелёная. */
+  function recoveryBand(score) {
+    if (score == null) return '—';
+    if (score >= 67) return 'выше нормы';
+    if (score >= 34) return 'в норме';
+    return 'ниже нормы';
+  }
+
   /* ---------- Sections ---------- */
   function renderHeader(s) {
     return `
@@ -432,7 +440,7 @@
               <div class="ring" style="color: var(--sage-deep); --p: ${recovery};"></div>
             </div>
             <div class="c-ink-2 mt-2.5 text-[24px] font-extrabold num leading-none tracking-tight">${recovery}<span class="text-[13px] font-semibold opacity-55">%</span></div>
-            <div class="c-sage-deep mt-1 text-[10.5px] font-semibold">выше нормы</div>
+            <div class="c-sage-deep mt-1 text-[10.5px] font-semibold">${recoveryBand(recovery)}</div>
           </div>
 
           <div class="glass rounded-2xl p-3">
