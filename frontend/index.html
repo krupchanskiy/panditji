@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Пандитджи — вход</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=EB+Garamond:ital,wght@0,400;0,500;1,400;1,500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:        oklch(0.965 0.010 235);
+    --ink:       oklch(0.32 0.060 250);
+    --ink-2:     oklch(0.25 0.060 250);
+    --text:      oklch(0.27 0.030 245);
+    --text-2:    oklch(0.50 0.022 240);
+    --text-3:    oklch(0.62 0.015 240);
+    --terra:     oklch(0.74 0.095 28);
+    --terra-deep:oklch(0.60 0.115 25);
+  }
+  html, body { min-height: 100vh; }
+  body {
+    font-family: 'Manrope', ui-sans-serif, sans-serif;
+    color: var(--text);
+    -webkit-font-smoothing: antialiased;
+    background:
+      radial-gradient(80% 70% at 85% 5%,  oklch(0.85 0.05 250 / 0.32) 0%, transparent 75%),
+      radial-gradient(75% 65% at 8% 28%,  oklch(0.84 0.045 230 / 0.32) 0%, transparent 78%),
+      radial-gradient(85% 60% at 95% 80%, oklch(0.86 0.04 290 / 0.22) 0%, transparent 75%),
+      radial-gradient(70% 55% at 12% 100%, oklch(0.82 0.045 30 / 0.18) 0%, transparent 80%),
+      linear-gradient(180deg, oklch(0.965 0.010 235), oklch(0.94 0.016 235));
+    background-attachment: fixed;
+  }
+  .font-serif-m { font-family: 'EB Garamond', Georgia, serif; }
+  .tracking-eyebrow { letter-spacing: 0.12em; }
+  .card {
+    width: 380px;
+    border-radius: 28px;
+    background: rgba(255,255,255,0.6);
+    backdrop-filter: blur(22px) saturate(140%);
+    -webkit-backdrop-filter: blur(22px) saturate(140%);
+    border: 1px solid rgba(255,255,255,0.7);
+    box-shadow:
+      0 1px 0 rgba(255,255,255,0.9) inset,
+      0 8px 24px -16px oklch(0.30 0.06 250 / 0.20),
+      0 40px 80px -30px oklch(0.30 0.06 250 / 0.30);
+  }
+  input[type="email"] {
+    width: 100%;
+    border: 1px solid color-mix(in oklch, var(--ink) 18%, transparent);
+    background: rgba(255,255,255,0.7);
+    border-radius: 14px;
+    padding: 12px 14px;
+    font-family: inherit;
+    font-size: 15px;
+    color: var(--ink-2);
+    outline: none;
+    transition: border-color .2s ease;
+  }
+  input[type="email"]:focus { border-color: var(--terra-deep); }
+  button.submit {
+    width: 100%;
+    background: var(--ink);
+    color: white;
+    border-radius: 14px;
+    padding: 12px;
+    font-weight: 600;
+    font-size: 15px;
+    transition: opacity .2s ease;
+  }
+  button.submit:hover { opacity: 0.92; }
+  button.submit:disabled { opacity: 0.5; cursor: not-allowed; }
+  .accent-line {
+    height: 1px;
+    background: linear-gradient(90deg, transparent, color-mix(in oklch, var(--terra) 70%, transparent), transparent);
+  }
+</style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-4">
+
+<div class="card p-8">
+  <div class="flex items-center gap-2 mb-4">
+    <span class="inline-block w-4 h-px" style="background: var(--terra);"></span>
+    <span class="text-[10.5px] tracking-eyebrow uppercase font-semibold" style="color: var(--terra-deep);">Пандитджи</span>
+    <span class="flex-1 accent-line"></span>
+  </div>
+  <h1 class="font-serif-m text-[24px] leading-[1.3] mb-6" style="color: var(--ink-2);">Здравствуй. Введи свой email — пришлю ссылку для входа.</h1>
+
+  <form id="login-form" class="space-y-3">
+    <input type="email" id="email" placeholder="ты@example.com" required autocomplete="email" />
+    <button type="submit" class="submit" id="submit-btn">Отправить ссылку</button>
+  </form>
+
+  <div id="sent" hidden class="space-y-2">
+    <p class="font-serif-m text-[18px] leading-[1.4]" style="color: var(--ink-2);">
+      Ссылка отправлена. Открой почту и нажми «Войти» — вернёшься сюда сам.
+    </p>
+    <p class="text-[12px]" style="color: var(--text-3);">Если письмо не пришло — посмотри в спаме.</p>
+  </div>
+
+  <div id="error" hidden class="mt-3 text-[13px]" style="color: var(--terra-deep);"></div>
+</div>
+
+<script type="module">
+  import { db } from './js/db.js'
+
+  /* Если уже залогинен — на утренний экран. */
+  const { data: { session } } = await db.auth.getSession()
+  if (session) {
+    window.location.replace('/morning.html')
+  }
+
+  const form = document.getElementById('login-form')
+  const sent = document.getElementById('sent')
+  const err  = document.getElementById('error')
+  const btn  = document.getElementById('submit-btn')
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault()
+    err.hidden = true
+    btn.disabled = true
+    btn.textContent = 'Отправляю…'
+
+    const email = document.getElementById('email').value.trim()
+    const { error } = await db.auth.signInWithOtp({
+      email,
+      options: { emailRedirectTo: `${window.location.origin}/morning.html` },
+    })
+
+    if (error) {
+      err.hidden = false
+      err.textContent = error.message
+      btn.disabled = false
+      btn.textContent = 'Отправить ссылку'
+      return
+    }
+
+    form.hidden = true
+    sent.hidden = false
+  })
+</script>
+
+</body>
+</html>

@@ -1,0 +1,544 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Утро — Пандитджи</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=EB+Garamond:ital,wght@0,400;0,500;1,400;1,500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:        oklch(0.965 0.010 235);
+    --bg-deep:   oklch(0.93 0.018 240);
+    --hairline:  oklch(0.88 0.018 235);
+    --ink:       oklch(0.32 0.060 250);
+    --ink-2:     oklch(0.25 0.060 250);
+    --ink-soft:  oklch(0.44 0.055 250);
+    --text:      oklch(0.27 0.030 245);
+    --text-2:    oklch(0.50 0.022 240);
+    --text-3:    oklch(0.62 0.015 240);
+    --terra:     oklch(0.74 0.095 28);
+    --terra-deep:oklch(0.60 0.115 25);
+    --terra-soft:oklch(0.93 0.035 35);
+    --sage:      oklch(0.74 0.065 225);
+    --sage-deep: oklch(0.52 0.085 235);
+    --sage-soft: oklch(0.92 0.035 225);
+    --gold:      oklch(0.76 0.060 290);
+    --gold-deep: oklch(0.50 0.10 70);
+  }
+
+  html, body { min-height: 100vh; }
+  body {
+    font-family: 'Manrope', ui-sans-serif, sans-serif;
+    color: var(--text);
+    -webkit-font-smoothing: antialiased;
+    background:
+      radial-gradient(80% 70% at 85% 5%,  oklch(0.85 0.05 250 / 0.32) 0%, transparent 75%),
+      radial-gradient(75% 65% at 8% 28%,  oklch(0.84 0.045 230 / 0.32) 0%, transparent 78%),
+      radial-gradient(85% 60% at 95% 80%, oklch(0.86 0.04 290 / 0.22) 0%, transparent 75%),
+      radial-gradient(70% 55% at 12% 100%, oklch(0.82 0.045 30 / 0.18) 0%, transparent 80%),
+      linear-gradient(180deg, oklch(0.965 0.010 235), oklch(0.94 0.016 235));
+    background-attachment: fixed;
+  }
+
+  .font-serif-m  { font-family: 'EB Garamond', Georgia, serif; }
+  .num           { font-feature-settings: "tnum" 1; font-variant-numeric: tabular-nums; }
+  .tracking-eyebrow { letter-spacing: 0.12em; }
+
+  .c-ink         { color: var(--ink); }
+  .c-ink-2       { color: var(--ink-2); }
+  .c-ink-soft    { color: var(--ink-soft); }
+  .c-text-2      { color: var(--text-2); }
+  .c-text-3      { color: var(--text-3); }
+  .c-terra-deep  { color: var(--terra-deep); }
+  .c-sage-deep   { color: var(--sage-deep); }
+  .c-gold-deep   { color: var(--gold-deep); }
+
+  /* ---------------- Stage ---------------- */
+  .stage {
+    width: 380px;
+    min-height: 860px;
+    border-radius: 40px;
+    position: relative;
+    overflow: hidden;
+    background:
+      radial-gradient(120% 60% at 50% 0%, oklch(0.975 0.010 235) 0%, oklch(0.96 0.012 235 / 0.65) 60%, transparent 100%),
+      linear-gradient(180deg, oklch(0.975 0.010 235) 0%, oklch(0.95 0.016 235) 100%);
+    box-shadow:
+      0 1px 0 rgba(255,255,255,0.8) inset,
+      0 0 0 1px rgba(255,255,255,0.5) inset,
+      0 40px 80px -30px oklch(0.30 0.06 250 / 0.30),
+      0 12px 30px -12px oklch(0.30 0.06 250 / 0.18);
+  }
+  .stage::before {
+    content: ""; position: absolute; pointer-events: none;
+    width: 360px; height: 360px; left: -140px; top: 260px;
+    background: radial-gradient(circle, oklch(0.78 0.07 225 / 0.32), transparent 70%);
+    filter: blur(28px);
+  }
+  .stage::after {
+    content: ""; position: absolute; pointer-events: none;
+    width: 400px; height: 400px; right: -180px; top: 520px;
+    background: radial-gradient(circle, oklch(0.78 0.06 290 / 0.30), transparent 70%);
+    filter: blur(32px);
+  }
+
+  /* ---------------- Glass cards ---------------- */
+  .glass {
+    background: rgba(255,255,255,0.55);
+    backdrop-filter: blur(22px) saturate(140%);
+    -webkit-backdrop-filter: blur(22px) saturate(140%);
+    border: 1px solid rgba(255,255,255,0.7);
+    box-shadow:
+      0 1px 0 rgba(255,255,255,0.9) inset,
+      0 1px 2px oklch(0.30 0.06 250 / 0.05),
+      0 8px 24px -16px oklch(0.30 0.06 250 / 0.20);
+  }
+  .glass-sage {
+    background: linear-gradient(160deg, oklch(0.90 0.05 225 / 0.72), oklch(0.84 0.07 230 / 0.55));
+    backdrop-filter: blur(22px) saturate(140%);
+    -webkit-backdrop-filter: blur(22px) saturate(140%);
+    border: 1px solid color-mix(in oklch, var(--sage-deep) 24%, transparent);
+  }
+  .glass-gold {
+    background: linear-gradient(160deg, oklch(0.91 0.05 290 / 0.68), oklch(0.84 0.07 285 / 0.52));
+    backdrop-filter: blur(22px) saturate(140%);
+    -webkit-backdrop-filter: blur(22px) saturate(140%);
+    border: 1px solid color-mix(in oklch, var(--gold) 32%, transparent);
+  }
+  .glass-terra {
+    background: linear-gradient(160deg, oklch(0.92 0.05 30 / 0.78), oklch(0.88 0.07 25 / 0.55));
+    backdrop-filter: blur(22px) saturate(140%);
+    -webkit-backdrop-filter: blur(22px) saturate(140%);
+    border: 1px solid color-mix(in oklch, var(--terra) 30%, transparent);
+  }
+
+  /* ---------------- Header ---------------- */
+  .header-bg {
+    background-image:
+      linear-gradient(180deg, oklch(0.26 0.05 250 / 0.55) 0%, oklch(0.30 0.06 250 / 0.42) 55%, oklch(0.32 0.06 250 / 0.38) 100%),
+      url('assets/radhakunda.jpg');
+    background-size: cover;
+    background-position: center 35%;
+    border-bottom: 1px solid rgba(255,255,255,0.10);
+  }
+  .header-orb-1 {
+    background: radial-gradient(circle, oklch(0.78 0.10 55 / 0.18), transparent 70%);
+    filter: blur(28px);
+  }
+  .header-orb-2 {
+    background: radial-gradient(circle, oklch(0.80 0.07 230 / 0.18), transparent 70%);
+    filter: blur(32px);
+  }
+  .burger {
+    background: rgba(255,255,255,0.12);
+    border: 1px solid rgba(255,255,255,0.18);
+    backdrop-filter: blur(8px);
+  }
+  .loc-dot {
+    background: var(--terra);
+    box-shadow: 0 0 6px var(--terra);
+  }
+
+  /* ---------------- Accent line ---------------- */
+  .accent-line {
+    height: 1px;
+    background: linear-gradient(90deg, transparent, color-mix(in oklch, var(--terra) 70%, transparent), transparent);
+  }
+  .eyebrow-bar { background: var(--terra); }
+
+  /* ---------------- Ring meter ---------------- */
+  .ring {
+    --p: 0;
+    width: 38px; height: 38px;
+    border-radius: 50%;
+    background: conic-gradient(currentColor calc(var(--p) * 1%), rgba(255,255,255,0.55) 0);
+    display: grid; place-items: center;
+    position: relative;
+    box-shadow: 0 0 0 1px rgba(0,0,0,0.04);
+  }
+  .ring::after {
+    content: ""; position: absolute; inset: 5px;
+    background: rgba(255,255,255,0.85);
+    border-radius: 50%;
+  }
+
+  /* ---------------- Events list ---------------- */
+  .dot-time {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--terra);
+    box-shadow: 0 0 0 4px color-mix(in oklch, var(--terra) 18%, transparent);
+  }
+  .dot-time.sage {
+    background: var(--sage-deep);
+    box-shadow: 0 0 0 4px color-mix(in oklch, var(--sage-deep) 18%, transparent);
+  }
+  .row-divider { background: rgba(40,55,45,0.08); }
+  .event-rule  { border-color: rgba(40,55,45,0.10); }
+
+  /* ---------------- Ekadasi badge ---------------- */
+  .ekadasi-icon {
+    background: linear-gradient(160deg, var(--terra), var(--terra-deep));
+    box-shadow: 0 4px 12px -4px oklch(0.65 0.14 50 / 0.5);
+  }
+  .ekadasi-orb {
+    background: radial-gradient(circle, oklch(0.78 0.14 55 / 0.45), transparent 65%);
+  }
+
+  /* ---------------- Todos ---------------- */
+  .check {
+    width: 28px; height: 28px;
+    border-radius: 9px;
+    border: 1.5px solid color-mix(in oklch, var(--ink) 18%, transparent);
+    background: rgba(255,255,255,0.7);
+    display: grid; place-items: center;
+    flex: none;
+    transition: all .2s ease;
+  }
+  .todo-row[data-done="true"] .check {
+    background: var(--ink);
+    border-color: var(--ink);
+    box-shadow: 0 4px 12px -4px oklch(0.27 0.025 155 / 0.5);
+  }
+  .check svg { opacity: 0; transform: scale(0.6); transition: all .2s ease; }
+  .todo-row[data-done="true"] .check svg { opacity: 1; transform: scale(1); }
+  .todo-row[data-done="true"] .label {
+    color: var(--text-3);
+    text-decoration: line-through;
+    text-decoration-thickness: 1.2px;
+    text-decoration-color: var(--text-3);
+  }
+  .todo-row[data-done="true"] .emoji-wrap { filter: grayscale(1); opacity: 0.45; }
+
+  .emoji-wrap {
+    width: 36px; height: 36px;
+    border-radius: 12px;
+    display: grid; place-items: center;
+    font-size: 18px;
+    background: rgba(255,255,255,0.6);
+    border: 1px solid rgba(255,255,255,0.9);
+    box-shadow: 0 1px 2px rgba(40,55,45,0.05);
+    flex: none;
+    transition: all .25s ease;
+  }
+  .emoji-wrap.water { background: linear-gradient(160deg, oklch(0.90 0.06 225 / 0.75), oklch(0.85 0.08 220 / 0.6)); }
+  .emoji-wrap.scale { background: linear-gradient(160deg, oklch(0.90 0.05 250 / 0.7),  oklch(0.85 0.07 245 / 0.6)); }
+  .emoji-wrap.bell  { background: linear-gradient(160deg, oklch(0.91 0.05 290 / 0.7),  oklch(0.86 0.07 285 / 0.6)); }
+</style>
+</head>
+<body class="min-h-screen flex items-start justify-center py-10 px-4">
+
+<div class="stage" id="stage"></div>
+
+<script type="module">
+  import { db, requireAuth, localDate, formatHeaderDate } from './js/db.js'
+
+  const user = await requireAuth()
+  if (!user) throw new Error('redirected')
+
+  /* Профиль + текущая локация. Два запроса — не зависим от имён FK-связей. */
+  const { data: profile, error: profileErr } = await db
+    .from('user_profile')
+    .select('spiritual_name, short_name, current_location_id')
+    .eq('id', user.id)
+    .single()
+  if (profileErr) throw profileErr
+
+  const { data: location, error: locErr } = await db
+    .from('locations')
+    .select('name, timezone')
+    .eq('id', profile.current_location_id)
+    .single()
+  if (locErr) throw locErr
+
+  const tz    = location.timezone
+  const today = localDate(tz)
+
+  /* Список дел + отметки выполнения за сегодня — параллельно. */
+  const [{ data: todoDefs }, { data: completions }] = await Promise.all([
+    db.from('daily_todos')
+      .select('id, todo_key, emoji, emoji_variant, label, sort_order')
+      .eq('is_active', true)
+      .order('sort_order'),
+    db.from('daily_todo_completions')
+      .select('todo_id')
+      .eq('date', today),
+  ])
+  const doneSet = new Set(completions.map((c) => c.todo_id))
+
+  /* Состояние экрана. Блоки с пометкой MOCK подцепим в следующих фазах:
+     Whoop (sleep), Google Calendar (events), gaurabda (ekadasi),
+     Claude API + memories (panditjiMessage), weather API (temperature). */
+  const STATE = {
+    date:     formatHeaderDate(tz),
+    location: { name: location.name, temperature: 11 /* MOCK */ },
+    panditjiMessage:
+      'Доброе утро, Ачинтья джи. Ночь оказалась дельной — Whoop говорит, готов на 78%, выше обычного. ' +
+      '<em>Уттара Бхадрапада</em> сегодня вяжет терпением: подходящий день читать без спешки.',
+    sleep: {
+      recovery: 78,
+      duration: { h: 7, m: 24 },
+      sleepEfficiency: 92,
+      hrv: 58,
+      hrvNormPosition: 60,
+      syncedAt: '06:14',
+    },
+    events: [
+      { time: '10:00', title: 'Звонок с Иваном',     duration: '45 минут', accent: 'sage'  },
+      { time: '15:00', title: 'Онлайн-консультация', duration: '1 час',    accent: 'terra' },
+    ],
+    ekadasi: {
+      name:        'Падмини Экадаши',
+      paranDate:   '16 мая',
+      paranWindow: '09:14–09:42',
+    },
+    todos: todoDefs.map((t) => ({
+      id:           t.id,
+      emoji:        t.emoji,
+      emojiVariant: t.emoji_variant,
+      label:        t.label,
+      done:         doneSet.has(t.id),
+    })),
+  };
+
+  /* ---------- Helpers ---------- */
+  const esc = (s) => String(s).replace(/[&<>"']/g, (c) =>
+    ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+  const tempStr = (t) => `${t > 0 ? '+' : ''}${t}°`;
+
+  /* ---------- Sections ---------- */
+  function renderHeader(s) {
+    return `
+      <header class="header-bg relative px-5 pt-24 pb-5 text-white overflow-hidden">
+        <div class="header-orb-1 absolute -right-20 -top-20 w-60 h-60 rounded-full pointer-events-none"></div>
+        <div class="header-orb-2 absolute -left-24 -bottom-12 w-52 h-52 rounded-full pointer-events-none"></div>
+
+        <button aria-label="Меню" id="burger"
+                class="burger absolute top-2.5 right-3.5 z-10 w-16 h-16 rounded-full grid place-items-center transition active:scale-95">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round">
+            <path d="M4 7h16M4 12h16M4 17h10"/>
+          </svg>
+        </button>
+
+        <div class="relative flex items-end justify-between">
+          <div>
+            <div class="text-[11px] tracking-eyebrow uppercase opacity-60 leading-none">${esc(s.date.weekday)}</div>
+            <div class="text-[26px] font-bold leading-none mt-2 num tracking-tight">${s.date.day} ${esc(s.date.month)}</div>
+          </div>
+          <div class="text-right">
+            <div class="text-[11px] tracking-eyebrow uppercase opacity-60 leading-none flex items-center gap-1.5 justify-end">
+              <span class="loc-dot inline-block w-1 h-1 rounded-full"></span>
+              ${esc(s.location.name)}
+            </div>
+            <div class="text-[26px] font-bold leading-none mt-2 num tracking-tight">${tempStr(s.location.temperature)}</div>
+          </div>
+        </div>
+      </header>`;
+  }
+
+  function renderMessage(s) {
+    /* panditjiMessage содержит дозволенные <em> — не экранируем. Источник — наш конфиг/LLM, не пользовательский ввод. */
+    return `
+      <section class="px-5 pt-7 pb-1 relative">
+        <div class="flex items-center gap-2 mb-3">
+          <span class="eyebrow-bar inline-block w-4 h-px"></span>
+          <span class="c-terra-deep text-[10.5px] tracking-eyebrow uppercase font-semibold">Пандитджи</span>
+          <span class="flex-1 accent-line"></span>
+        </div>
+        <p class="font-serif-m text-[20.5px] leading-[1.4]" style="color: var(--text);">
+          ${s.panditjiMessage}
+        </p>
+      </section>`;
+  }
+
+  function renderSleep(s) {
+    const { recovery, duration, sleepEfficiency, hrv, hrvNormPosition, syncedAt } = s.sleep;
+    return `
+      <section class="px-5 mt-6">
+        <div class="flex items-center justify-between mb-2.5">
+          <div class="flex items-center gap-2">
+            <span class="c-text-2 text-[10.5px] tracking-eyebrow uppercase font-semibold">Ночь</span>
+            <span class="c-text-3 text-[10.5px]">·</span>
+            <span class="c-text-3 text-[10.5px]">Whoop</span>
+          </div>
+          <span class="c-text-3 text-[10.5px] num">${esc(syncedAt)}</span>
+        </div>
+
+        <div class="grid grid-cols-3 gap-2">
+          <div class="glass-sage rounded-2xl p-3">
+            <div class="flex items-center justify-between">
+              <span class="c-sage-deep text-[10px] tracking-eyebrow uppercase font-semibold">Recov</span>
+              <div class="ring" style="color: var(--sage-deep); --p: ${recovery};"></div>
+            </div>
+            <div class="c-ink-2 mt-2.5 text-[24px] font-extrabold num leading-none tracking-tight">${recovery}<span class="text-[13px] font-semibold opacity-55">%</span></div>
+            <div class="c-sage-deep mt-1 text-[10.5px] font-semibold">выше нормы</div>
+          </div>
+
+          <div class="glass rounded-2xl p-3">
+            <div class="flex items-center justify-between">
+              <span class="c-text-2 text-[10px] tracking-eyebrow uppercase font-semibold">Сон</span>
+              <div class="ring" style="color: var(--ink-soft); --p: ${sleepEfficiency};"></div>
+            </div>
+            <div class="c-ink-2 mt-2.5 text-[24px] font-extrabold num leading-none tracking-tight">
+              ${duration.h}<span class="text-[13px] font-semibold opacity-55">ч</span> ${duration.m}<span class="text-[13px] font-semibold opacity-55">м</span>
+            </div>
+            <div class="c-text-2 mt-1 text-[10.5px] font-semibold">эфф. ${sleepEfficiency}%</div>
+          </div>
+
+          <div class="glass-gold rounded-2xl p-3">
+            <div class="flex items-center justify-between">
+              <span class="c-gold-deep text-[10px] tracking-eyebrow uppercase font-semibold">HRV</span>
+              <div class="ring" style="color: oklch(0.60 0.12 70); --p: ${hrvNormPosition};"></div>
+            </div>
+            <div class="c-ink-2 mt-2.5 text-[24px] font-extrabold num leading-none tracking-tight">${hrv}<span class="text-[13px] font-semibold opacity-55">мс</span></div>
+            <div class="c-gold-deep mt-1 text-[10.5px] font-semibold">норма 50–65</div>
+          </div>
+        </div>
+      </section>`;
+  }
+
+  function renderEventRow(ev, isLast) {
+    return `
+      <div class="flex items-center gap-3 px-4 py-3">
+        <div class="flex items-center gap-2.5 w-[58px]">
+          <span class="dot-time ${ev.accent === 'sage' ? 'sage' : ''}"></span>
+          <span class="num text-[13px] font-bold tabular-nums c-ink-2">${esc(ev.time)}</span>
+        </div>
+        <div class="flex-1 pl-2 border-l event-rule">
+          <div class="pl-3">
+            <div class="text-[14px] font-semibold c-ink-2">${esc(ev.title)}</div>
+            <div class="text-[11.5px] c-text-3">${esc(ev.duration)}</div>
+          </div>
+        </div>
+      </div>
+      ${isLast ? '' : '<div class="h-px mx-4 row-divider"></div>'}`;
+  }
+
+  function renderEvents(s) {
+    const count = s.events.length;
+    const list = s.events.map((ev, i) => renderEventRow(ev, i === count - 1)).join('');
+    const ekadasi = s.ekadasi ? renderEkadasi(s.ekadasi) : '';
+    return `
+      <section class="px-5 mt-7">
+        <div class="flex items-baseline justify-between mb-3">
+          <h2 class="c-ink-2 text-[17px] font-bold tracking-tight">Сегодня</h2>
+          <span class="c-text-3 text-[11px] font-medium">${count} ${pluralEvents(count)}</span>
+        </div>
+        <div class="glass rounded-2xl overflow-hidden">${list}</div>
+        ${ekadasi}
+      </section>`;
+  }
+
+  function pluralEvents(n) {
+    const mod10  = n % 10;
+    const mod100 = n % 100;
+    if (mod10 === 1 && mod100 !== 11) return 'событие';
+    if (mod10 >= 2 && mod10 <= 4 && (mod100 < 10 || mod100 >= 20)) return 'события';
+    return 'событий';
+  }
+
+  function renderEkadasi(e) {
+    return `
+      <div class="glass-terra rounded-2xl mt-2.5 px-4 py-3.5 flex items-start gap-3 relative overflow-hidden">
+        <div class="ekadasi-orb absolute -right-6 -bottom-6 w-24 h-24 rounded-full opacity-50"></div>
+        <div class="ekadasi-icon relative flex-none w-9 h-9 rounded-xl grid place-items-center">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+          </svg>
+        </div>
+        <div class="relative flex-1">
+          <div class="flex items-center gap-2">
+            <span class="c-terra-deep text-[10px] tracking-eyebrow uppercase font-bold">Завтра</span>
+            <span class="w-1 h-1 rounded-full" style="background: var(--terra);"></span>
+            <span class="c-terra-deep text-[10px] tracking-eyebrow uppercase font-semibold" style="opacity: 0.7;">пост</span>
+          </div>
+          <div class="c-ink-2 text-[15px] font-bold mt-0.5">${esc(e.name)}</div>
+          <div class="c-text-2 text-[12px] mt-0.5 num font-medium">паран ${esc(e.paranDate)} · <span class="c-terra-deep font-bold">${esc(e.paranWindow)}</span></div>
+        </div>
+      </div>`;
+  }
+
+  function renderTodos(s) {
+    const rows = s.todos.map((t, i) => `
+      ${i === 0 ? '' : '<div class="h-px mx-3.5 row-divider"></div>'}
+      <button class="todo-row w-full flex items-center gap-3 px-3.5 py-3 text-left" data-id="${esc(t.id)}" data-done="${t.done}">
+        <span class="check">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="5 12 10 17 19 7"/>
+          </svg>
+        </span>
+        <span class="emoji-wrap ${esc(t.emojiVariant)}">${t.emoji}</span>
+        <span class="label c-ink-2 text-[14.5px] font-semibold flex-1">${esc(t.label)}</span>
+      </button>
+    `).join('');
+
+    const doneCount = s.todos.filter((t) => t.done).length;
+
+    return `
+      <section class="px-5 mt-7 pb-10">
+        <div class="flex items-baseline justify-between mb-3">
+          <h2 class="c-ink-2 text-[17px] font-bold tracking-tight">Сегодня сделать</h2>
+          <span id="todo-counter" class="c-text-3 text-[11px] font-semibold num">${doneCount} / ${s.todos.length}</span>
+        </div>
+        <div class="glass rounded-2xl overflow-hidden">${rows}</div>
+      </section>`;
+  }
+
+  /* ---------- Mount + interactions ---------- */
+  function render() {
+    const root = document.getElementById('stage');
+    root.innerHTML =
+      renderHeader(STATE) +
+      renderMessage(STATE) +
+      renderSleep(STATE) +
+      renderEvents(STATE) +
+      renderTodos(STATE);
+  }
+
+  function updateCounter() {
+    const counter = document.getElementById('todo-counter');
+    const done = STATE.todos.filter((t) => t.done).length;
+    counter.textContent = `${done} / ${STATE.todos.length}`;
+  }
+
+  async function toggleTodo(todoId, willBeDone) {
+    if (willBeDone) {
+      const { error } = await db.from('daily_todo_completions')
+        .insert({ user_id: user.id, todo_id: todoId, date: today })
+      if (error) console.error('completion insert failed', error)
+    } else {
+      const { error } = await db.from('daily_todo_completions')
+        .delete()
+        .eq('todo_id', todoId)
+        .eq('date', today)
+      if (error) console.error('completion delete failed', error)
+    }
+  }
+
+  document.addEventListener('click', (ev) => {
+    const row = ev.target.closest('.todo-row');
+    if (row) {
+      const id = row.dataset.id;
+      const todo = STATE.todos.find((t) => t.id === id);
+      if (!todo) return;
+      todo.done = !todo.done;
+      row.dataset.done = todo.done;
+      updateCounter();
+      /* Оптимистично: DOM обновлён, БД синкаем фоном. */
+      toggleTodo(id, todo.done);
+      return;
+    }
+    const burger = ev.target.closest('#burger');
+    if (burger) {
+      /* Меню — вне рамок этого экрана, добавим позже. */
+    }
+  });
+
+  render();
+</script>
+
+</body>
+</html>
