@@ -22,6 +22,8 @@
     --terra:     oklch(0.74 0.095 28);
     --terra-deep:oklch(0.60 0.115 25);
     --terra-soft:oklch(0.93 0.035 35);
+    --amber:     oklch(0.80 0.085 75);
+    --amber-deep:oklch(0.56 0.115 70);
     --sage:      oklch(0.74 0.065 225);
     --sage-deep: oklch(0.52 0.085 235);
     --sage-soft: oklch(0.92 0.035 225);
@@ -123,6 +125,13 @@
     -webkit-backdrop-filter: blur(22px) saturate(140%);
     border: 1px solid color-mix(in oklch, var(--terra) 30%, transparent);
   }
+  .glass-amber {
+    background: linear-gradient(160deg, oklch(0.95 0.06 85 / 0.78), oklch(0.91 0.085 80 / 0.55));
+    backdrop-filter: blur(22px) saturate(140%);
+    -webkit-backdrop-filter: blur(22px) saturate(140%);
+    border: 1px solid color-mix(in oklch, var(--amber) 32%, transparent);
+  }
+  .c-amber-deep { color: var(--amber-deep); }
 
   /* ---------------- Header ---------------- */
   .header-bg {
@@ -194,6 +203,13 @@
   }
   .ekadasi-orb {
     background: radial-gradient(circle, oklch(0.78 0.14 55 / 0.45), transparent 65%);
+  }
+  .ekadasi-icon--amber {
+    background: linear-gradient(160deg, var(--amber), var(--amber-deep));
+    box-shadow: 0 4px 12px -4px oklch(0.65 0.14 80 / 0.45);
+  }
+  .ekadasi-orb--amber {
+    background: radial-gradient(circle, oklch(0.84 0.13 85 / 0.45), transparent 65%);
   }
 
   /* ---------------- Todos ---------------- */
@@ -389,14 +405,18 @@
     const badge = diffDays === 0 ? 'Сегодня' : diffDays === 1 ? 'Завтра' : `Через ${diffDays} дн`
     const fmtDate = new Intl.DateTimeFormat('ru-RU', { timeZone: tz, day: 'numeric', month: 'long' })
 
+    /* Красная плашка только если экадаши «горит» — сегодня или завтра.
+       На бóльших расстояниях — мягкая янтарная (информационная). */
+    const isImmediate = diffDays <= 1
+
     if (diffDays > 3) {
       const ekDateStr = fmtDate.format(new Date(eventDate + 'T12:00:00Z'))
-      return { name: ek.event_name, badge, isFar: true, ekDate: ekDateStr }
+      return { name: ek.event_name, badge, isFar: true, isImmediate, ekDate: ekDateStr }
     }
 
     const paranStart = ek.paran_start_at
     const paranEnd = ek.paran_end_at
-    if (!paranStart) return { name: ek.event_name, badge, isFar: false, paranDate: '—', paranWindow: '—' }
+    if (!paranStart) return { name: ek.event_name, badge, isFar: false, isImmediate, paranDate: '—', paranWindow: '—' }
     const fmtTime = new Intl.DateTimeFormat('ru-RU', { timeZone: tz, hour: '2-digit', minute: '2-digit', hour12: false })
     const paranWindow = paranEnd
       ? `${fmtTime.format(new Date(paranStart))}–${fmtTime.format(new Date(paranEnd))}`
@@ -405,6 +425,7 @@
       name: ek.event_name,
       badge,
       isFar: false,
+      isImmediate,
       paranDate: fmtDate.format(new Date(paranStart)),
       paranWindow,
     }
@@ -670,30 +691,39 @@
 
   function renderEkadasi(e) {
     const badge = e.badge || 'Завтра';
+    /* Тон карточки: красная (terra) если экадаши сегодня/завтра, иначе мягкая янтарная. */
+    const accent = e.isImmediate ? 'terra' : 'amber';
+    const glassClass = accent === 'terra' ? 'glass-terra' : 'glass-amber';
+    const iconClass  = accent === 'terra' ? 'ekadasi-icon' : 'ekadasi-icon ekadasi-icon--amber';
+    const orbClass   = accent === 'terra' ? 'ekadasi-orb' : 'ekadasi-orb ekadasi-orb--amber';
+    const textClass  = accent === 'terra' ? 'c-terra-deep' : 'c-amber-deep';
+    const dotColor   = accent === 'terra' ? 'var(--terra)' : 'var(--amber)';
+    const iconColor  = accent === 'terra' ? 'var(--terra-deep)' : 'var(--amber-deep)';
+
     const detail = e.isFar
       ? `<div class="c-text-2 text-[12px] mt-0.5 num font-medium">${esc(e.ekDate)}</div>`
-      : `<div class="c-text-2 text-[12px] mt-0.5 num font-medium">паран ${esc(e.paranDate)} · <span class="c-terra-deep font-bold">${esc(e.paranWindow)}</span></div>`;
+      : `<div class="c-text-2 text-[12px] mt-0.5 num font-medium">паран ${esc(e.paranDate)} · <span class="${textClass} font-bold">${esc(e.paranWindow)}</span></div>`;
     return `
-      <div class="glass-terra rounded-2xl mt-2.5 px-4 py-3.5 flex items-start gap-3 relative overflow-hidden">
-        <div class="ekadasi-orb absolute -right-6 -bottom-6 w-24 h-24 rounded-full opacity-50"></div>
+      <div class="${glassClass} rounded-2xl mt-2.5 px-4 py-3.5 flex items-start gap-3 relative overflow-hidden">
+        <div class="${orbClass} absolute -right-6 -bottom-6 w-24 h-24 rounded-full opacity-50"></div>
         <a href="/calendar.html" aria-label="Открыть календарь"
            class="absolute top-2.5 right-2.5 z-10 w-8 h-8 rounded-lg grid place-items-center transition active:scale-95"
-           style="color: var(--terra-deep);">
+           style="color: ${iconColor};">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/>
             <path d="M3.5 10.5h17M8 3v4M16 3v4"/>
           </svg>
         </a>
-        <div class="ekadasi-icon relative flex-none w-9 h-9 rounded-xl grid place-items-center">
+        <div class="${iconClass} relative flex-none w-9 h-9 rounded-xl grid place-items-center">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round">
             <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
           </svg>
         </div>
         <div class="relative flex-1 pr-8">
           <div class="flex items-center gap-2">
-            <span class="c-terra-deep text-[10px] tracking-eyebrow uppercase font-bold">${esc(badge)}</span>
-            <span class="w-1 h-1 rounded-full" style="background: var(--terra);"></span>
-            <span class="c-terra-deep text-[10px] tracking-eyebrow uppercase font-semibold" style="opacity: 0.7;">${e.isFar ? 'экадаши' : 'пост'}</span>
+            <span class="${textClass} text-[10px] tracking-eyebrow uppercase font-bold">${esc(badge)}</span>
+            <span class="w-1 h-1 rounded-full" style="background: ${dotColor};"></span>
+            <span class="${textClass} text-[10px] tracking-eyebrow uppercase font-semibold" style="opacity: 0.7;">${e.isFar ? 'экадаши' : 'пост'}</span>
           </div>
           <div class="c-ink-2 text-[15px] font-bold mt-0.5">${esc(e.name)}</div>
           ${detail}
