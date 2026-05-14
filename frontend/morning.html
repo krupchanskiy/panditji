@@ -256,8 +256,8 @@
   const tz    = location.timezone
   const today = localDate(tz)
 
-  /* Список дел + отметки выполнения за сегодня — параллельно. */
-  const [{ data: todoDefs }, { data: completions }] = await Promise.all([
+  /* Список дел + отметки выполнения за сегодня + погода — параллельно. */
+  const [{ data: todoDefs }, { data: completions }, weatherRes] = await Promise.all([
     db.from('daily_todos')
       .select('id, todo_key, emoji, emoji_variant, label, sort_order')
       .eq('is_active', true)
@@ -265,15 +265,19 @@
     db.from('daily_todo_completions')
       .select('todo_id')
       .eq('date', today),
+    db.functions.invoke('weather'),
   ])
   const doneSet = new Set(completions.map((c) => c.todo_id))
+  const temperature = weatherRes.error
+    ? null
+    : Math.round(weatherRes.data.temperature_c)
 
   /* Состояние экрана. Блоки с пометкой MOCK подцепим в следующих фазах:
      Whoop (sleep), Google Calendar (events), gaurabda (ekadasi),
      Claude API + memories (panditjiMessage), weather API (temperature). */
   const STATE = {
     date:     formatHeaderDate(tz),
-    location: { name: location.name, temperature: 11 /* MOCK */ },
+    location: { name: location.name, temperature },
     panditjiMessage:
       'Доброе утро, Ачинтья джи. Ночь оказалась дельной — Whoop говорит, готов на 78%, выше обычного. ' +
       '<em>Уттара Бхадрапада</em> сегодня вяжет терпением: подходящий день читать без спешки.',
@@ -307,7 +311,7 @@
   const esc = (s) => String(s).replace(/[&<>"']/g, (c) =>
     ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
-  const tempStr = (t) => `${t > 0 ? '+' : ''}${t}°`;
+  const tempStr = (t) => (t == null ? '—' : `${t > 0 ? '+' : ''}${t}°`);
 
   /* ---------- Sections ---------- */
   function renderHeader(s) {
