@@ -56,21 +56,30 @@
   .c-sage-deep   { color: var(--sage-deep); }
   .c-gold-deep   { color: var(--gold-deep); }
 
-  /* ---------------- Stage ---------------- */
+  /* ---------------- Stage ----------------
+     Mobile-first: на телефоне stage = весь экран, без скруглений и тени.
+     На широком экране (desktop preview, ≥481px) — обратно в макет 380px. */
   .stage {
-    width: 380px;
-    min-height: 860px;
-    border-radius: 40px;
+    width: 100%;
+    max-width: 380px;
+    min-height: 100vh;
+    border-radius: 0;
     position: relative;
     overflow: hidden;
     background:
       radial-gradient(120% 60% at 50% 0%, oklch(0.975 0.010 235) 0%, oklch(0.96 0.012 235 / 0.65) 60%, transparent 100%),
       linear-gradient(180deg, oklch(0.975 0.010 235) 0%, oklch(0.95 0.016 235) 100%);
-    box-shadow:
-      0 1px 0 rgba(255,255,255,0.8) inset,
-      0 0 0 1px rgba(255,255,255,0.5) inset,
-      0 40px 80px -30px oklch(0.30 0.06 250 / 0.30),
-      0 12px 30px -12px oklch(0.30 0.06 250 / 0.18);
+  }
+  @media (min-width: 481px) {
+    .stage {
+      min-height: 860px;
+      border-radius: 40px;
+      box-shadow:
+        0 1px 0 rgba(255,255,255,0.8) inset,
+        0 0 0 1px rgba(255,255,255,0.5) inset,
+        0 40px 80px -30px oklch(0.30 0.06 250 / 0.30),
+        0 12px 30px -12px oklch(0.30 0.06 250 / 0.18);
+    }
   }
   .stage::before {
     content: ""; position: absolute; pointer-events: none;
@@ -228,7 +237,7 @@
   .emoji-wrap.bell  { background: linear-gradient(160deg, oklch(0.91 0.05 290 / 0.7),  oklch(0.86 0.07 285 / 0.6)); }
 </style>
 </head>
-<body class="min-h-screen flex items-start justify-center py-10 px-4">
+<body class="min-h-screen flex items-start justify-center md:py-10 md:px-4">
 
 <div class="stage" id="stage"></div>
 
@@ -364,7 +373,7 @@
         <div class="header-orb-2 absolute -left-24 -bottom-12 w-52 h-52 rounded-full pointer-events-none"></div>
 
         <button aria-label="Меню" id="burger"
-                class="burger absolute top-2.5 right-3.5 z-10 w-16 h-16 rounded-full grid place-items-center transition active:scale-95">
+                class="burger absolute top-2.5 left-3.5 z-10 w-16 h-16 rounded-full grid place-items-center transition active:scale-95">
           <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round">
             <path d="M4 7h16M4 12h16M4 17h10"/>
           </svg>
