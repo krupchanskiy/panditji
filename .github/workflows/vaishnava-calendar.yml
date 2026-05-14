@@ -1,0 +1,44 @@
+name: Vaishnava Calendar
+
+on:
+  # 1 числа каждого месяца в 03:00 UTC (= 06:00 МСК)
+  schedule:
+    - cron: "0 3 1 * *"
+  # Ручной запуск из вкладки Actions
+  workflow_dispatch:
+    inputs:
+      years_ahead:
+        description: "Сколько лет вперёд считать"
+        required: false
+        default: "2"
+      dry_run:
+        description: "Не писать в БД (1 = да)"
+        required: false
+        default: "0"
+
+jobs:
+  recalc:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+          cache-dependency-path: infra/gaurabda-job/requirements.txt
+
+      - name: Install dependencies
+        working-directory: infra/gaurabda-job
+        run: pip install -r requirements.txt
+
+      - name: Run recalculation
+        working-directory: infra/gaurabda-job
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE: ${{ secrets.SUPABASE_SERVICE_ROLE }}
+          PANDITJI_USER_ID: ${{ secrets.PANDITJI_USER_ID }}
+          YEARS_AHEAD: ${{ inputs.years_ahead || '2' }}
+          DRY_RUN: ${{ inputs.dry_run || '0' }}
+        run: python run.py
