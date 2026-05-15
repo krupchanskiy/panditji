@@ -180,6 +180,14 @@ Deno.serve(async (req) => {
     .eq('user_id', body.user_id)
   if (updErr) return json({ error: 'db_update_session_failed', message: updErr.message }, 500)
 
+  /* Trigger baseline recompute (ТЗ step 9). Non-fatal: if it fails, the lazy
+   * recompute in get-session-report / get-trends-report will catch up. */
+  try {
+    await triggerRecompute(body.user_id)
+  } catch (e) {
+    console.error('recompute trigger failed (non-fatal):', e)
+  }
+
   return json({
     session_id: body.session_id,
     pace_min_per_circle: result.paceMinPerCircle,
@@ -193,3 +201,15 @@ Deno.serve(async (req) => {
     caption_calm: calm,
   })
 })
+
+async function triggerRecompute(userId: string): Promise<void> {
+  const url = Deno.env.get('SUPABASE_URL')!
+  const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+  if (!serviceKey) throw new Error('SUPABASE_SERVICE_ROLE_KEY missing for recompute trigger')
+  const resp = await fetch(`${url}/functions/v1/recompute-meditation-baseline`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${serviceKey}` },
+    body: JSON.stringify({ user_id: userId }),
+  })
+  if (!resp.ok) throw new Error(`recompute returned ${resp.status}: ${await resp.text()}`)
+}
