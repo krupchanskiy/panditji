@@ -65,3 +65,23 @@ export function toggleSessionExclusion(sessionId, exclude) {
 export function getJapaSummaryWidget() {
   return callEdge('get-japa-summary-widget', { method: 'GET' })
 }
+
+export function submitSessionContext(payload) {
+  return callEdge('submit-session-context', {
+    method: 'POST',
+    body: payload,
+  })
+}
+
+/* Locations are user-owned and RLS-filtered; we query them directly via the
+ * supabase client to keep the form fast (no need for a dedicated endpoint). */
+export async function loadUserLocations() {
+  const { data, error } = await db
+    .from('locations')
+    .select('id, name, is_primary')
+    .order('is_primary', { ascending: false })
+    .order('name', { ascending: true })
+    .limit(10)
+  if (error) throw error
+  return data ?? []
+}

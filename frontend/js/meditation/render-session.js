@@ -10,11 +10,19 @@ import {
 import {
   renderMainChart, renderCalmStrip, renderComparePerCircle, CHART_COLORS, ChartLegend,
 } from './charts.js'
-import { toggleSessionExclusion } from './api.js'
+import { toggleSessionExclusion, submitSessionContext, loadUserLocations } from './api.js'
 
 const VARIANT_KEY = 'panditji_main_chart_variant'
 
 export function renderSession(root, report) {
+  /* Session uploaded but circles not confirmed → show the fill-in form
+   * instead of the regular report. After successful submit we reload, and
+   * the regular branch below renders the now-completed report. */
+  if (report.circles === null) {
+    renderContextForm(root, report)
+    return
+  }
+
   const variant = localStorage.getItem(VARIANT_KEY) ?? 'bars'
   root.innerHTML = `
     ${PageHead({
@@ -34,6 +42,230 @@ export function renderSession(root, report) {
     ${actionsRow(report)}
   `
   bindActions(root, report)
+}
+
+/* ── context form (session without confirmed circles) ─────────────────── */
+
+async function renderContextForm(root, report) {
+  root.innerHTML = `
+    ${PageHead({
+      title: 'Дозаполнить',
+      meta: `${report.date.split(',')[0]} · ${report.time.start}`,
+      backHref: '/morning.html',
+    })}
+    <section class="mb-3">
+      <h2 class="font-serif-m c-ink text-[22px] leading-tight">${e(report.date)}</h2>
+      <div class="text-[12px] c-text-2 mt-1 num">
+        ${e(report.time.start)}–${e(report.time.end)} · ${e(report.durationMin.toFixed(1).replace('.', ','))} мин · сигнал ${Math.round(report.signal.overall)}%
+      </div>
+      <div class="text-[12px] c-text-3 mt-2 leading-relaxed">
+        Сессия загружена через бота, но не до конца оформлена. Ответь на пять вопросов — и откроется полный отчёт.
+      </div>
+    </section>
+
+    <div id="ctx-form-body">
+      <div class="text-[13px] c-text-3 py-6 text-center">Подгружаю места…</div>
+    </div>
+  `
+
+  /* Load locations, then build the form body. */
+  let locations = []
+  try { locations = await loadUserLocations() } catch (err) { console.error('locations load failed:', err) }
+
+  const formBody = root.querySelector('#ctx-form-body')
+  formBody.innerHTML = formMarkup(locations)
+  bindFormActions(root, report.id)
+}
+
+function formMarkup(locations) {
+  const locButtons = locations.map(l =>
+    `<button type="button" class="ctx-pill" data-field="location_id" data-value="${e(l.id)}">${e(l.name)}</button>`,
+  ).join('')
+
+  return `
+    ${Card({ extraClass: 'mb-3', children: `
+      ${SectionTitle({ children: '1. Что это?' })}
+      <div class="ctx-pillrow mt-2">
+        <button type="button" class="ctx-pill" data-field="kind" data-value="regular">Обычная джапа</button>
+        <button type="button" class="ctx-pill" data-field="kind" data-value="preview">Только посмотреть</button>
+      </div>
+      <div class="text-[11px] c-text-3 mt-2 italic">«Только посмотреть» — сессия будет проанализирована, но не повлияет на статистику и средние.</div>
+    ` })}
+
+    ${Card({ extraClass: 'mb-3', children: `
+      ${SectionTitle({ children: '2. Сколько кругов было?' })}
+      <div class="ctx-pillrow mt-2">
+        <button type="button" class="ctx-pill" data-field="circles" data-value="8">8</button>
+        <button type="button" class="ctx-pill" data-field="circles" data-value="12">12</button>
+        <button type="button" class="ctx-pill" data-field="circles" data-value="16">16</button>
+        <button type="button" class="ctx-pill" data-field="circles" data-value="24">24</button>
+      </div>
+      <div class="ctx-row mt-2">
+        <label class="text-[11px] c-text-3" for="ctx-circles-other">или впиши число:</label>
+        <input id="ctx-circles-other" data-field="circles_text" type="number" min="1" max="200" inputmode="numeric"
+               class="ctx-input num" placeholder="—">
+      </div>
+    ` })}
+
+    ${Card({ extraClass: 'mb-3', children: `
+      ${SectionTitle({ children: '3. Где сидел?' })}
+      <div class="ctx-pillrow mt-2">
+        ${locButtons || '<span class="text-[11px] c-text-3">Нет сохранённых мест — впиши новое:</span>'}
+        <button type="button" class="ctx-pill" data-field="location_id" data-value="__custom__">другое</button>
+      </div>
+      <input data-field="location_name" type="text" maxlength="60" class="ctx-input mt-2" placeholder="Название места"
+             style="display: none;">
+    ` })}
+
+    ${Card({ extraClass: 'mb-3', children: `
+      ${SectionTitle({ children: '4. Отвлекали?' })}
+      <div class="ctx-pillrow mt-2">
+        <button type="button" class="ctx-pill" data-field="distracted" data-value="никто">Никто</button>
+        <button type="button" class="ctx-pill" data-field="distracted" data-value="немного">Немного</button>
+        <button type="button" class="ctx-pill" data-field="distracted" data-value="сильно">Сильно</button>
+      </div>
+    ` })}
+
+    ${Card({ extraClass: 'mb-3', children: `
+      ${SectionTitle({ children: '5. Как сам ощутил?' })}
+      <div class="ctx-pillrow mt-2">
+        ${[1, 2, 3, 4, 5].map(n =>
+          `<button type="button" class="ctx-pill" data-field="self_rating" data-value="${n}">${n}</button>`,
+        ).join('')}
+      </div>
+      <div class="text-[11px] c-text-3 mt-2 italic">1 = очень плохо, 5 = очень хорошо. Это твоё ощущение, отдельно от данных.</div>
+    ` })}
+
+    ${Card({ extraClass: 'mb-3', children: `
+      ${SectionTitle({ children: 'Заметка (необязательно)' })}
+      <textarea data-field="user_note" rows="2" maxlength="500" class="ctx-input mt-2"
+                placeholder="Что-нибудь о сегодняшней практике?"></textarea>
+    ` })}
+
+    <div class="ctx-submit-row mb-6">
+      <button type="button" id="ctx-submit" class="ctx-submit-btn" disabled>Сохранить и рассчитать</button>
+      <div id="ctx-error" class="ctx-error" style="display: none;"></div>
+    </div>
+  `
+}
+
+function bindFormActions(root, sessionId) {
+  if (root._ctxDelegated) return
+  root._ctxDelegated = true
+
+  const state = {
+    kind: null, circles: null, location_id: null, location_name: null,
+    distracted: null, self_rating: null, user_note: '',
+  }
+
+  const validate = () => {
+    const haveLocation = (state.location_id && state.location_id !== '__custom__')
+      || (state.location_id === '__custom__' && state.location_name && state.location_name.trim())
+    return state.kind && state.circles && haveLocation && state.distracted && state.self_rating
+  }
+
+  const updateSubmit = () => {
+    const btn = root.querySelector('#ctx-submit')
+    if (btn) btn.disabled = !validate()
+  }
+
+  /* Pill clicks. */
+  root.addEventListener('click', async (ev) => {
+    const pill = ev.target.closest('.ctx-pill')
+    if (pill) {
+      const field = pill.dataset.field
+      const value = pill.dataset.value
+      state[field] = field === 'circles' ? parseInt(value, 10)
+                   : field === 'self_rating' ? parseInt(value, 10)
+                   : value
+
+      /* Toggle active state inside the same pillrow. */
+      pill.parentElement.querySelectorAll('.ctx-pill').forEach(p => {
+        const isActive = p.dataset.field === field && p.dataset.value === value
+        p.classList.toggle('active', isActive)
+      })
+
+      /* Show / hide the custom location input. */
+      if (field === 'location_id') {
+        const input = root.querySelector('input[data-field="location_name"]')
+        if (input) input.style.display = value === '__custom__' ? 'block' : 'none'
+        if (value !== '__custom__') state.location_name = null
+      }
+
+      /* Clear the "other circles" input when a preset is picked. */
+      if (field === 'circles') {
+        const other = root.querySelector('#ctx-circles-other')
+        if (other) other.value = ''
+      }
+
+      updateSubmit()
+      return
+    }
+
+    if (ev.target.id === 'ctx-submit') {
+      await submit()
+    }
+  })
+
+  /* Text inputs. */
+  root.addEventListener('input', (ev) => {
+    const el = ev.target
+    if (el.dataset.field === 'circles_text') {
+      const n = parseInt(el.value, 10)
+      if (Number.isFinite(n) && n >= 1 && n <= 200) {
+        state.circles = n
+        /* De-select preset pills. */
+        root.querySelectorAll('.ctx-pill[data-field="circles"]').forEach(p => p.classList.remove('active'))
+      } else {
+        state.circles = null
+      }
+      updateSubmit()
+      return
+    }
+    if (el.dataset.field === 'location_name') {
+      state.location_name = el.value
+      updateSubmit()
+      return
+    }
+    if (el.dataset.field === 'user_note') {
+      state.user_note = el.value
+      return
+    }
+  })
+
+  async function submit() {
+    if (!validate()) return
+    const btn = root.querySelector('#ctx-submit')
+    const errBox = root.querySelector('#ctx-error')
+    btn.disabled = true
+    btn.textContent = 'Считаю…'
+    errBox.style.display = 'none'
+
+    const payload = {
+      session_id: sessionId,
+      kind: state.kind,
+      circles: state.circles,
+      distracted: state.distracted,
+      self_rating: state.self_rating,
+      user_note: state.user_note?.trim() || null,
+    }
+    if (state.location_id && state.location_id !== '__custom__') {
+      payload.location_id = state.location_id
+    } else {
+      payload.location_name = state.location_name.trim()
+    }
+
+    try {
+      await submitSessionContext(payload)
+      location.reload()
+    } catch (err) {
+      console.error('submit failed:', err)
+      btn.disabled = false
+      btn.textContent = 'Сохранить и рассчитать'
+      errBox.style.display = 'block'
+      errBox.textContent = 'Не удалось сохранить: ' + (err?.message ?? 'ошибка')
+    }
+  }
 }
 
 /* ── state badges (preview / excluded / headband shift / nonstandard duration) ── */
@@ -421,4 +653,71 @@ export const SESSION_STYLES = `
     cursor: pointer;
   }
   .action-btn:hover { background: rgba(255,255,255,.75); }
+
+  /* Context-form (when session has no confirmed circles). */
+  .ctx-pillrow {
+    display: flex; flex-wrap: wrap; gap: 6px;
+  }
+  .ctx-pill {
+    font-size: 12px;
+    padding: 6px 12px;
+    border-radius: 999px;
+    color: var(--text);
+    background: rgba(255,255,255,.55);
+    border: 1px solid rgba(255,255,255,.55);
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+  }
+  .ctx-pill:hover { background: rgba(255,255,255,.75); }
+  .ctx-pill.active {
+    background: var(--ink-2);
+    color: white;
+    border-color: var(--ink-2);
+  }
+  .ctx-row {
+    display: flex; align-items: center; gap: 8px;
+  }
+  .ctx-input {
+    width: 100%;
+    font-size: 13px;
+    padding: 8px 12px;
+    border-radius: 12px;
+    color: var(--text);
+    background: rgba(255,255,255,.55);
+    border: 1px solid rgba(255,255,255,.55);
+    outline: none;
+    font-family: inherit;
+  }
+  .ctx-input:focus { background: rgba(255,255,255,.85); border-color: rgba(50,58,85,.25); }
+  .ctx-row .ctx-input {
+    flex: 1;
+    max-width: 100px;
+  }
+  textarea.ctx-input { resize: vertical; }
+  .ctx-submit-row {
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .ctx-submit-btn {
+    width: 100%;
+    font-size: 14px;
+    padding: 12px 16px;
+    border-radius: 14px;
+    background: var(--ink-2);
+    color: white;
+    border: 0;
+    cursor: pointer;
+    transition: opacity 0.15s;
+  }
+  .ctx-submit-btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+  .ctx-error {
+    font-size: 12px;
+    color: var(--terra-deep);
+    padding: 8px 12px;
+    background: oklch(0.95 0.025 35 / 0.55);
+    border: 1px solid oklch(0.85 0.07 35 / 0.50);
+    border-radius: 12px;
+  }
 `
