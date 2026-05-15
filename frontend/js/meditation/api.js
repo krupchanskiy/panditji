@@ -66,6 +66,15 @@ export function getJapaSummaryWidget() {
   return callEdge('get-japa-summary-widget', { method: 'GET' })
 }
 
+export function getSessionsList({ period = 90, tag = null, locationId = null, calmOnly = false, includeExcluded = false } = {}) {
+  const params = { period }
+  if (tag) params.tag = tag
+  if (locationId) params.location_id = locationId
+  if (calmOnly) params.calm_only = 'true'
+  if (includeExcluded) params.include_excluded = 'true'
+  return callEdge('get-sessions-list', { method: 'GET', params })
+}
+
 export function submitSessionContext(payload) {
   return callEdge('submit-session-context', {
     method: 'POST',

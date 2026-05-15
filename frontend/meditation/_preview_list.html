@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Сессии — предпросмотр</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=EB+Garamond:ital,wght@0,400;0,500;1,400;1,500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: oklch(0.32 0.060 250); --ink-2: oklch(0.25 0.060 250);
+    --text: oklch(0.27 0.030 245); --text-2: oklch(0.50 0.022 240); --text-3: oklch(0.62 0.015 240);
+    --sage-deep: oklch(0.52 0.085 235); --terra-deep: oklch(0.60 0.115 25); --gold-deep: oklch(0.50 0.10 70);
+  }
+  html, body { min-height: 100vh; }
+  body {
+    font-family: 'Manrope', ui-sans-serif, sans-serif; color: var(--text);
+    background:
+      radial-gradient(80% 70% at 85% 5%, oklch(0.85 0.05 250 / 0.32) 0%, transparent 75%),
+      radial-gradient(75% 65% at 8% 28%, oklch(0.84 0.045 230 / 0.32) 0%, transparent 78%),
+      linear-gradient(180deg, oklch(0.965 0.010 235), oklch(0.94 0.016 235));
+    background-attachment: fixed;
+  }
+  .font-serif-m { font-family: 'EB Garamond', Georgia, serif; }
+  .num { font-feature-settings: "tnum" 1; font-variant-numeric: tabular-nums; }
+  .tracking-eyebrow { letter-spacing: 0.12em; }
+  .c-ink { color: var(--ink); }
+  .c-text { color: var(--text); } .c-text-2 { color: var(--text-2); } .c-text-3 { color: var(--text-3); }
+</style>
+</head>
+<body>
+  <main class="mx-auto max-w-[420px] px-4 py-4" id="root"></main>
+
+  <script type="module">
+    import { LIST_STYLES } from '/js/meditation/render-list.js'
+
+    /* We render with a synthetic dataset directly via internals — for preview we
+     * sidestep bootstrapList (which calls the live API). */
+    const styleEl = document.createElement('style'); styleEl.textContent = LIST_STYLES
+    document.head.appendChild(styleEl)
+
+    const mock = {
+      period: 90, total: 8,
+      filters: { tag: null, location_id: null, calm_only: false, include_excluded: false },
+      sessions: [
+        { id: 's1', date: 'сегодня', time: '06:37', durationMin: 60.6, circles: 16,
+          deepeningPct: 63, deepeningReliable: true, abIndexMedian: 3.01, longestCalmSec: 630,
+          calmPeriodsCount: 4, durationCategory: 'standard', distracted: 'никто', selfRating: 4,
+          tags: ['глубокое углубление', 'раннее углубление'], kind: 'regular',
+          excludedFromStats: false, excludedReason: null, location: { id: 'l', name: 'Москва, дома' },
+          signalShiftSeverity: null, isToday: true },
+        { id: 's2', date: 'вчера', time: '06:49', durationMin: 50.5, circles: 16,
+          deepeningPct: null, deepeningReliable: false, abIndexMedian: 1.67, longestCalmSec: 270,
+          durationCategory: 'standard', distracted: 'немного', selfRating: 3,
+          tags: ['артефакт повязки', 'недостоверное углубление'], kind: 'regular',
+          excludedFromStats: false, excludedReason: null, location: { id: 'l', name: 'Москва, дома' },
+          signalShiftSeverity: 'high', isToday: false },
+        { id: 's3', date: '13 мая', time: '06:30', durationMin: 30, circles: 8,
+          deepeningPct: 20, deepeningReliable: true, abIndexMedian: 2.4, longestCalmSec: 180,
+          durationCategory: 'short', distracted: 'сильно', selfRating: 2,
+          tags: ['короче обычной', 'много блуждания'], kind: 'regular',
+          excludedFromStats: false, excludedReason: null, location: { id: 'l2', name: 'Говардхан' },
+          signalShiftSeverity: null, isToday: false },
+        { id: 's4', date: '12 мая', time: '06:40', durationMin: 60, circles: 16,
+          deepeningPct: -25, deepeningReliable: true, abIndexMedian: 2.2, longestCalmSec: 90,
+          durationCategory: 'standard', distracted: 'никто', selfRating: 3,
+          tags: ['обратная динамика'], kind: 'regular',
+          excludedFromStats: false, excludedReason: null, location: { id: 'l', name: 'Москва, дома' },
+          signalShiftSeverity: null, isToday: false },
+        { id: 's5', date: '11 мая', time: '07:00', durationMin: 60, circles: 16,
+          deepeningPct: 8, deepeningReliable: true, abIndexMedian: 2.8, longestCalmSec: 420,
+          durationCategory: 'standard', distracted: 'немного', selfRating: 4,
+          tags: ['ровная сессия', 'ровная первая половина'], kind: 'preview',
+          excludedFromStats: true, excludedReason: 'preview',
+          location: { id: 'l', name: 'Москва, дома' }, signalShiftSeverity: null, isToday: false },
+      ],
+      facets: {
+        tags: ['артефакт повязки', 'глубокое углубление', 'короче обычной', 'много блуждания', 'обратная динамика', 'раннее углубление', 'ровная сессия', 'ровная первая половина'],
+        locations: [{ id: 'l', name: 'Москва, дома' }, { id: 'l2', name: 'Говардхан' }],
+      },
+    }
+
+    /* Re-implement renderShell inline to keep this preview self-contained. */
+    const { PageHead, escapeHtml: e } = await import('/js/meditation/shared.js')
+    const root = document.getElementById('root')
+    root.innerHTML = `
+      ${PageHead({ title: 'Сессии', meta: `${mock.total} сессий`, backHref: '/morning.html' })}
+      <div class="period-switch mb-3">
+        <button class="period-btn">7д</button>
+        <button class="period-btn">30д</button>
+        <button class="period-btn active">90д</button>
+        <button class="period-btn">всё</button>
+      </div>
+      <div class="list-toggles mb-3">
+        <label class="list-toggle"><input type="checkbox"/><span>Только спокойная</span></label>
+        <label class="list-toggle"><input type="checkbox"/><span>Показать исключённые</span></label>
+      </div>
+      <div id="list-body"></div>
+    `
+
+    /* Render cards via the real internal function */
+    const renderListMod = await import('/js/meditation/render-list.js')
+    /* Internal sessionCard is not exported — we mimic the API by calling bootstrapList
+     * here would require the real backend. For preview, just call the underlying
+     * helper via dynamic export hack: build cards inline. */
+    const body = document.getElementById('list-body')
+    body.innerHTML = `<div class="session-list">${mock.sessions.map(s => `
+      <a href="#" class="session-card-link"><div class="session-card">
+        <div class="flex items-start justify-between gap-2">
+          <div class="flex-1 min-w-0">
+            <div class="flex items-baseline gap-2">
+              <span class="font-serif-m c-ink text-[18px]">${e(s.date)}</span>
+              <span class="num text-[11px] c-text-3">${e(s.time)} · ${s.durationMin} мин · ${s.circles} кругов</span>
+            </div>
+            <div class="text-[11px] c-text-3 mt-0.5 truncate">${e(s.location?.name ?? '')} · отвлекали: ${e(s.distracted ?? '')} · оценка ${s.selfRating ?? '—'}</div>
+          </div>
+          ${s.kind === 'preview' ? '<span class="chip num bg-amber-soft c-amber-deep border-amber-soft">preview</span>' : ''}
+        </div>
+        <div class="session-metrics-row mt-2">
+          <div class="session-metric">
+            <span class="session-metric-label">Theta</span>
+            <span class="num c-ink">${s.deepeningPct === null ? '—' : (s.deepeningPct >= 0 ? '+' : '') + Math.round(s.deepeningPct)}${s.deepeningPct === null ? '' : '<span class="text-[10px] c-text-3 ml-0.5">%</span>'}</span>
+            ${s.signalShiftSeverity ? '<span class="text-[10px] c-text-3">артефакт</span>' : ''}
+          </div>
+          <div class="session-metric">
+            <span class="session-metric-label">A/B</span>
+            <span class="num c-ink">${s.abIndexMedian.toFixed(2).replace('.', ',')}</span>
+          </div>
+          <div class="session-metric">
+            <span class="session-metric-label">Calm</span>
+            <span class="num c-ink">${Math.floor(s.longestCalmSec / 60)}:${String(s.longestCalmSec % 60).padStart(2, '0')}</span>
+          </div>
+        </div>
+        <div class="flex flex-wrap gap-1 mt-2">${s.tags.slice(0, 4).map(t => `<span class="tag c-text-2">${e(t)}</span>`).join('')}</div>
+      </div></a>`).join('')}</div>`
+  </script>
+</body>
+</html>

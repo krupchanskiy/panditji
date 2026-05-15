@@ -530,10 +530,16 @@ function compareCard(report) {
 
 function statsLink() {
   return `
-    <a href="/meditation/trends.html" class="block stats-cta mb-3">
-      <span class="text-[13px] c-ink font-semibold">Статистика</span>
-      <span class="text-[11px] c-text-3">тренды, корреляции →</span>
-    </a>`
+    <div class="space-y-2 mb-3">
+      <a href="/meditation/trends.html" class="block stats-cta">
+        <span class="text-[13px] c-ink font-semibold">Статистика</span>
+        <span class="text-[11px] c-text-3">тренды, корреляции →</span>
+      </a>
+      <a href="/meditation/" class="block stats-cta">
+        <span class="text-[13px] c-ink font-semibold">Все сессии</span>
+        <span class="text-[11px] c-text-3">список с фильтрами →</span>
+      </a>
+    </div>`
 }
 
 /* ── actions row ──────────────────────────────────────────────────────── */
