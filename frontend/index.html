@@ -948,12 +948,20 @@ function renderHeader(h) {
  * ──────────────────────────────────────────────────────────────── */
 async function loadJapa() {
   if (PREVIEW) return MOCK.japa
-  const { data, error } = await db.functions.invoke('get-japa-summary-widget')
-  if (error) {
-    console.warn('japa load failed', error)
+  try {
+    const { data, error } = await db.functions.invoke('get-japa-summary-widget')
+    if (error) {
+      /* error.context — это Response из fetch; вытащим тело для диагностики. */
+      let detail = ''
+      try { detail = await error.context?.clone().text() } catch {}
+      console.warn('japa invoke failed:', error.message, detail)
+      return { state: 'error' }
+    }
+    return data || { state: 'no_sessions' }
+  } catch (e) {
+    console.warn('japa load threw:', e)
     return { state: 'error' }
   }
-  return data || { state: 'no_sessions' }
 }
 
 function cardTitleHTML(label, href) {

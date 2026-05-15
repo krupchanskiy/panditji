@@ -22,15 +22,30 @@
 
 import { createClient } from 'jsr:@supabase/supabase-js@2'
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, OPTIONS',
-  'Access-Control-Allow-Headers': 'authorization, content-type, apikey',
+/* Allow-Headers эхом отражает запрошенный preflight'ом список — иначе браузер
+ * блокирует actual GET, если supabase-js шлёт служебные заголовки (x-client-info
+ * и т.п.), которых нет в hardcoded allow-list. */
+function corsHeadersFor(req: Request): Record<string, string> {
+  const requested = req.headers.get('access-control-request-headers')
+    ?? 'authorization, content-type, apikey, x-client-info, x-supabase-api-version'
+  return {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET, OPTIONS',
+    'Access-Control-Allow-Headers': requested,
+    'Access-Control-Max-Age': '86400',
+  }
 }
 
-function json(body: unknown, status = 200): Response {
+function json(body: unknown, status = 200, req?: Request): Response {
   return new Response(JSON.stringify(body), {
-    status, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    status,
+    headers: {
+      ...(req ? corsHeadersFor(req) : {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Headers': 'authorization, content-type, apikey, x-client-info, x-supabase-api-version',
+      }),
+      'Content-Type': 'application/json',
+    },
   })
 }
 
@@ -43,8 +58,8 @@ const RECOVERY_GOOD_SCORE = 70
 const USER_TZ_DEFAULT = 'Asia/Kolkata'  // TODO: user_profile.current_tz
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
-  if (req.method !== 'GET') return json({ error: 'method_not_allowed' }, 405)
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeadersFor(req) })
+  if (req.method !== 'GET') return json({ error: 'method_not_allowed' }, 405, req)
 
   const supabaseUrl = Deno.env.get('SUPABASE_URL')
   const anonKey = Deno.env.get('SUPABASE_ANON_KEY')
