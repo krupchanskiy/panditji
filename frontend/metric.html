@@ -89,8 +89,8 @@
     margin: 18px 16px 8px;
     display: flex;
     align-items: center;
-    gap: 10px;
-    padding: 6px 14px 6px 6px;
+    gap: 12px;
+    padding: 6px;
     border-radius: 999px;
     background: rgba(255,255,255,0.65);
     backdrop-filter: blur(16px) saturate(140%);
@@ -98,7 +98,8 @@
     border: 1px solid rgba(255,255,255,0.7);
     box-shadow: 0 4px 14px -10px oklch(0.30 0.06 250 / 0.20);
   }
-  .page-head .back-btn {
+  .page-head .back-btn,
+  .page-head .home-btn {
     flex: none;
     width: 36px; height: 36px;
     border-radius: 50%;
@@ -108,20 +109,23 @@
     color: var(--ink-2);
     transition: transform 0.15s ease;
   }
-  .page-head .back-btn:active { transform: scale(0.95); }
+  .page-head .back-btn:active,
+  .page-head .home-btn:active { transform: scale(0.95); }
   .page-head .title {
+    flex: 1;
     font-family: 'EB Garamond', Georgia, serif;
     font-size: 20px;
     font-weight: 500;
     color: var(--ink-2);
     line-height: 1;
-    letter-spacing: -0.01em;
+    letter-spacing: -0.005em;
+    padding-left: 4px;
   }
   .page-head .meta {
-    margin-left: auto;
     font-size: 11px;
     color: var(--text-3);
     font-weight: 500;
+    padding-right: 4px;
   }
 
   /* Hero number */
@@ -466,11 +470,14 @@
   function renderShell(title, meta, body) {
     return `
       <div class="page-head">
-        <a href="/morning.html" class="back-btn" aria-label="назад">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
-        </a>
+        <button onclick="history.length > 1 ? history.back() : (location.href='/morning.html')" class="back-btn" aria-label="назад">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+        </button>
         <div class="title">${esc(title)}</div>
         ${meta ? `<div class="meta num">${esc(meta)}</div>` : ''}
+        <a href="/morning.html" class="home-btn" aria-label="на главную">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h4v-6h6v6h4V10"/></svg>
+        </a>
       </div>
       <main class="pb-10">${body}</main>`
   }
