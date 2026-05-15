@@ -185,6 +185,7 @@
 
   /* ---------------- Events list ---------------- */
   .dot-time {
+    flex: none;
     width: 8px; height: 8px; border-radius: 50%;
     background: var(--terra);
     box-shadow: 0 0 0 4px color-mix(in oklch, var(--terra) 18%, transparent);
@@ -636,15 +637,20 @@
     }
   })()
 
-  /* Подбор фазы Луны по освещённости + пакше из панчанги.
-     gaurabda: paksha=Кришна (gaurabda's=0) — waxing (растущая Луна);
-               paksha=Шукла  (gaurabda's=1) — waning (убывающая). */
+  /* Подбор фазы Луны по тити + пакше из панчанги.
+     Шукла пакша — светлая половина, Луна растёт (waxing).
+     Кришна пакша — тёмная половина, Луна убывает (waning).
+     Полнолуние / новолуние — строго в день пурнимы (15 Шукла) / амавасьи (15 Кришна),
+     а не по проценту освещённости (иначе ≈97% за день до пурнимы тоже считается «полной»). */
   function pickMoonPhase(panchanga) {
     if (!panchanga) return 'moon-waning-crescent'
+    const tithi = Number(panchanga.tithi_index || 0)
+    const waxing = panchanga.paksha === 'Шукла'
+
+    if (waxing && tithi >= 15) return 'moon-full'
+    if (!waxing && tithi >= 15) return 'moon-new'
+
     const illum = Number(panchanga.moon_illumination || 0)
-    const waxing = panchanga.paksha === 'Кришна'  // см. примечание выше
-    if (illum < 5) return 'moon-new'
-    if (illum > 95) return 'moon-full'
     if (illum < 40) return waxing ? 'moon-waxing-crescent' : 'moon-waning-crescent'
     if (illum < 60) return waxing ? 'moon-first-quarter'   : 'moon-last-quarter'
     return waxing ? 'moon-waxing-gibbous' : 'moon-waning-gibbous'
