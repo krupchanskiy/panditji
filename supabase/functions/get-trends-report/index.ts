@@ -12,8 +12,8 @@
  * avgCalmNormalized / avgAllNormalized / correlations are null at this point —
  * they fill in once recompute-baseline + correlations blocks land. */
 
-import { createClient } from 'jsr:@supabase/supabase-js@2'
-import { buildTrendsReport, SessionForTrends } from './trends.ts'
+import { createClient, SupabaseClient } from 'jsr:@supabase/supabase-js@2'
+import { buildTrendsReport, NormalizedBaseline, SessionForTrends } from './trends.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -77,8 +77,131 @@ Deno.serve(async (req) => {
     } as SessionForTrends
   })
 
+  /* Per-position normalized averages live in meditation_baseline. We need both
+   * calm-only and all variants for the same period. Lazy-recompute if stale. */
+  let avgCalmNormalized: NormalizedBaseline | null = null
+  let avgAllNormalized: NormalizedBaseline | null = null
+  if (sessions.length > 0) {
+    try {
+      const userId = await getUserIdFromAuth(supabase)
+      if (userId) {
+        const periodKey = periodDaysToKey(period)
+        const baselines = await loadBaselinesWithLazyRecompute(supabase, userId, periodKey)
+        avgCalmNormalized = baselines.calm
+        avgAllNormalized = baselines.all
+      }
+    } catch (e) {
+      console.error('baseline load failed, continuing without:', e)
+    }
+  }
+
   const report = buildTrendsReport({
     period, calmOnly, now: new Date(), sessions,
+    avgCalmNormalized, avgAllNormalized,
   })
   return json(report)
 })
+
+type PeriodKey = 'w' | 'm' | 'q' | 'all'
+
+function periodDaysToKey(days: number): PeriodKey {
+  if (days <= 7) return 'w'
+  if (days <= 30) return 'm'
+  if (days <= 90) return 'q'
+  return 'all'
+}
+
+async function getUserIdFromAuth(supabase: SupabaseClient): Promise<string | null> {
+  const { data, error } = await supabase.auth.getUser()
+  if (error || !data.user) return null
+  return data.user.id
+}
+
+async function loadBaselinesWithLazyRecompute(
+  supabase: SupabaseClient, userId: string, period: PeriodKey,
+): Promise<{ calm: NormalizedBaseline | null; all: NormalizedBaseline | null }> {
+  let rows = await fetchBaselinesForPeriod(supabase, userId, period)
+
+  if (await needsRecompute(supabase, userId, rows)) {
+    await triggerRecompute(userId)
+    rows = await fetchBaselinesForPeriod(supabase, userId, period)
+  }
+
+  return {
+    calm: pickNormalized(rows, true),
+    all: pickNormalized(rows, false),
+  }
+}
+
+type RawRow = {
+  calm_only: boolean
+  session_count: number
+  computed_at: string
+  avg_alpha_normalized: number[] | null
+  avg_theta_normalized: number[] | null
+  avg_beta_normalized: number[] | null
+  avg_ab_normalized: number[] | null
+}
+
+async function fetchBaselinesForPeriod(
+  supabase: SupabaseClient, userId: string, period: PeriodKey,
+): Promise<RawRow[]> {
+  const { data, error } = await supabase
+    .from('meditation_baseline')
+    .select(`
+      calm_only, session_count, computed_at,
+      avg_alpha_normalized, avg_theta_normalized,
+      avg_beta_normalized, avg_ab_normalized
+    `)
+    .eq('user_id', userId)
+    .eq('period', period)
+  if (error) throw error
+  return (data ?? []) as unknown as RawRow[]
+}
+
+async function needsRecompute(
+  supabase: SupabaseClient, userId: string, rows: RawRow[],
+): Promise<boolean> {
+  // We expect both calm_only variants — missing either means recompute.
+  const haveCalm = rows.some(r => r.calm_only === true)
+  const haveAll  = rows.some(r => r.calm_only === false)
+  if (!haveCalm || !haveAll) return true
+
+  const oldest = Math.min(...rows.map(r => Date.parse(r.computed_at)))
+
+  const { data: latest } = await supabase
+    .from('meditation_sessions')
+    .select('started_at')
+    .eq('user_id', userId)
+    .eq('excluded_from_stats', false)
+    .not('circles', 'is', null)
+    .order('started_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  if (!latest) return false
+  return Date.parse(latest.started_at) > oldest
+}
+
+async function triggerRecompute(userId: string): Promise<void> {
+  const url = Deno.env.get('SUPABASE_URL')!
+  const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+  if (!serviceKey) throw new Error('SUPABASE_SERVICE_ROLE_KEY missing for recompute trigger')
+  const resp = await fetch(`${url}/functions/v1/recompute-meditation-baseline`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${serviceKey}` },
+    body: JSON.stringify({ user_id: userId }),
+  })
+  if (!resp.ok) throw new Error(`recompute returned ${resp.status}: ${await resp.text()}`)
+}
+
+function pickNormalized(rows: RawRow[], calmOnly: boolean): NormalizedBaseline | null {
+  const r = rows.find(x => x.calm_only === calmOnly)
+  if (!r) return null
+  // Need ≥1 of the four arrays present; we'll let buildTrendsReport pass them through.
+  return {
+    alpha: r.avg_alpha_normalized,
+    theta: r.avg_theta_normalized,
+    beta: r.avg_beta_normalized,
+    ab: r.avg_ab_normalized,
+  }
+}

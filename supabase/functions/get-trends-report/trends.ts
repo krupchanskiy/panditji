@@ -52,6 +52,14 @@ export type TrendSession = {
   durationCategory: 'standard' | 'short' | 'long' | null
 }
 
+/* Per-position normalized averages — one row's worth from meditation_baseline. */
+export type NormalizedBaseline = {
+  alpha: number[] | null
+  theta: number[] | null
+  beta: number[] | null
+  ab: number[] | null
+}
+
 export type TrendsReport = {
   period: number                 // 7 | 30 | 90 | 365
   calmOnly: boolean
@@ -66,9 +74,10 @@ export type TrendsReport = {
   sma7Deepening: Array<number | null>   // same length as sessions, null where window too small or deepening missing
   sma7Ab: Array<number | null>
 
-  /* Baseline-backed fields — null until recompute-baseline runs. */
-  avgCalmNormalized: null
-  avgAllNormalized: null
+  /* Per-position normalized averages from meditation_baseline. Null when no
+   * baseline row exists or it has fewer than the minimum sessions. */
+  avgCalmNormalized: NormalizedBaseline | null
+  avgAllNormalized: NormalizedBaseline | null
 
   /* Correlations are stubbed; populated in a later block. */
   correlations: null
@@ -79,6 +88,8 @@ export type BuildTrendsInput = {
   calmOnly: boolean
   now: Date                      // for isToday
   sessions: SessionForTrends[]   // already date-filtered by caller (last N days)
+  avgCalmNormalized?: NormalizedBaseline | null
+  avgAllNormalized?: NormalizedBaseline | null
 }
 
 /* ── filters ───────────────────────────────────────────────────────────── */
@@ -149,8 +160,8 @@ export function buildTrendsReport(input: BuildTrendsInput): TrendsReport {
     sessions,
     sma7Deepening,
     sma7Ab,
-    avgCalmNormalized: null,
-    avgAllNormalized: null,
+    avgCalmNormalized: input.avgCalmNormalized ?? null,
+    avgAllNormalized: input.avgAllNormalized ?? null,
     correlations: null,
   }
 }

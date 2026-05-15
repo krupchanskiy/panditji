@@ -208,6 +208,31 @@ Deno.test('SMA-7: AB-index parallel computation', () => {
 
 /* ── calm-only flag ─────────────────────────────────────────────────────── */
 
+/* ── baseline normalized averages ──────────────────────────────────────── */
+
+Deno.test('normalized baselines: pass through to TrendsReport unchanged', () => {
+  const calm = {
+    alpha: Array.from({ length: 16 }, () => 30),
+    theta: Array.from({ length: 16 }, () => 15),
+    beta:  Array.from({ length: 16 }, () => 13),
+    ab:    Array.from({ length: 16 }, () => 2.5),
+  }
+  const r = buildTrendsReport({
+    period: 30, calmOnly: true, now, sessions: [makeSession()],
+    avgCalmNormalized: calm, avgAllNormalized: null,
+  })
+  assertEquals(r.avgCalmNormalized, calm)
+  assertEquals(r.avgAllNormalized, null)
+})
+
+Deno.test('normalized baselines: both omitted → both null', () => {
+  const r = buildTrendsReport({
+    period: 30, calmOnly: false, now, sessions: [makeSession()],
+  })
+  assertEquals(r.avgCalmNormalized, null)
+  assertEquals(r.avgAllNormalized, null)
+})
+
 Deno.test('calmOnly: filters out tech-issues sessions from sessions[] too', () => {
   const sessions = [
     makeSession({ id: 'clean' }),

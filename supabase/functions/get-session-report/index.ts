@@ -1,16 +1,25 @@
 /* Edge Function: get-session-report
  *
- * Returns SessionReport for the PWA session screen.
+ * Returns SessionReport for the PWA session screen, including baseline-backed
+ * compare.*.periods when a fresh baseline exists.
  *
- * Auth: user JWT (verify_jwt: true at deploy). RLS enforces that user sees only own session.
+ * Lazy recompute (Q3 decision, no cron):
+ *   - If any baseline row for the user is missing OR predates the user's
+ *     latest session — call recompute-meditation-baseline once, then re-fetch.
+ *   - On recompute error: log + continue with whatever rows we have, so the
+ *     screen still renders.
+ *
+ * Auth: user JWT (verify_jwt: true). RLS filters sessions/baselines to current user.
  * Deploy: supabase functions deploy get-session-report
  *
- * Baseline comparisons (compare.*.periods) are wired in the SessionReport shape
- * but always null at this point — recompute-meditation-baseline lands in the
- * next block, after which periods get populated. */
+ * Query: ?id=<session_id>&calm_only=true|false  (default calm_only=true) */
 
-import { createClient } from 'jsr:@supabase/supabase-js@2'
-import { buildSessionReport, SessionRow, CircleRow, LocationRow } from './report.ts'
+import { createClient, SupabaseClient } from 'jsr:@supabase/supabase-js@2'
+import {
+  buildSessionReport, SessionRow, CircleRow, LocationRow,
+  BaselineRow, BaselinesByPeriod,
+} from './report.ts'
+import { resampleFromBins } from '../recompute-meditation-baseline/resample.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -31,19 +40,19 @@ Deno.serve(async (req) => {
   const url = new URL(req.url)
   const sessionId = url.searchParams.get('id')
   if (!sessionId) return json({ error: 'missing_id', message: 'query param "id" required' }, 400)
+  const calmOnly = (url.searchParams.get('calm_only') ?? 'true') === 'true'
 
   const supabaseUrl = Deno.env.get('SUPABASE_URL')
   const anonKey = Deno.env.get('SUPABASE_ANON_KEY')
   if (!supabaseUrl || !anonKey) return json({ error: 'server_misconfigured' }, 500)
 
-  /* Run under the user's JWT so RLS filters automatically. */
   const auth = req.headers.get('Authorization') ?? ''
   if (!auth) return json({ error: 'unauthorized' }, 401)
   const supabase = createClient(supabaseUrl, anonKey, {
     global: { headers: { Authorization: auth } },
   })
 
-  /* Session row. RLS guarantees user_id = auth.uid(); .single() returns error if missing. */
+  /* Session row. */
   const { data: session, error: sErr } = await supabase
     .from('meditation_sessions')
     .select(`
@@ -64,7 +73,7 @@ Deno.serve(async (req) => {
   if (sErr) return json({ error: 'db_error', message: sErr.message }, 500)
   if (!session) return json({ error: 'not_found' }, 404)
 
-  /* Circles (may be empty if user hasn't confirmed circles yet). */
+  /* Circles. */
   const { data: circleRows, error: cErr } = await supabase
     .from('meditation_circles')
     .select('circle_num, alpha_rel, theta_rel, beta_rel, ab_index')
@@ -72,7 +81,7 @@ Deno.serve(async (req) => {
     .order('circle_num')
   if (cErr) return json({ error: 'db_error', message: cErr.message }, 500)
 
-  /* Location — optional. Skip query when session.location_id is null. */
+  /* Location. */
   let location: LocationRow | null = null
   if (session.location_id) {
     const { data: loc } = await supabase
@@ -83,10 +92,100 @@ Deno.serve(async (req) => {
     location = loc as LocationRow | null
   }
 
+  /* Baselines (lazy recompute). Failures degrade gracefully — we still render the page. */
+  let baselines: BaselinesByPeriod | null = null
+  try {
+    baselines = await loadBaselinesWithLazyRecompute(
+      supabase, session.user_id as string, calmOnly,
+    )
+  } catch (e) {
+    console.error('baseline load failed, continuing without:', e)
+  }
+
   const report = buildSessionReport(
     session as unknown as SessionRow,
     (circleRows ?? []) as unknown as CircleRow[],
     location,
+    baselines,
+    resampleFromBins,
   )
   return json(report)
 })
+
+async function loadBaselinesWithLazyRecompute(
+  supabase: SupabaseClient, userId: string, calmOnly: boolean,
+): Promise<BaselinesByPeriod> {
+  let rows = await fetchBaselines(supabase, userId, calmOnly)
+
+  if (await needsRecompute(supabase, userId, rows)) {
+    await triggerRecompute(userId)
+    rows = await fetchBaselines(supabase, userId, calmOnly)
+  }
+
+  return rowsToByPeriod(rows)
+}
+
+type RawBaselineRow = BaselineRow & { period: 'w' | 'm' | 'q' | 'all'; computed_at: string }
+
+async function fetchBaselines(
+  supabase: SupabaseClient, userId: string, calmOnly: boolean,
+): Promise<RawBaselineRow[]> {
+  const { data, error } = await supabase
+    .from('meditation_baseline')
+    .select(`
+      period, session_count, computed_at,
+      avg_deepening, avg_stability, avg_beta,
+      avg_theta_normalized, avg_ab_normalized, avg_beta_normalized
+    `)
+    .eq('user_id', userId)
+    .eq('calm_only', calmOnly)
+  if (error) throw error
+  return (data ?? []) as unknown as RawBaselineRow[]
+}
+
+async function needsRecompute(
+  supabase: SupabaseClient, userId: string, rows: RawBaselineRow[],
+): Promise<boolean> {
+  if (rows.length === 0) return true
+  const oldestComputed = Math.min(...rows.map(r => Date.parse(r.computed_at)))
+
+  const { data: latest } = await supabase
+    .from('meditation_sessions')
+    .select('started_at')
+    .eq('user_id', userId)
+    .eq('excluded_from_stats', false)
+    .not('circles', 'is', null)
+    .order('started_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  if (!latest) return false        // user has no eligible sessions — nothing to recompute against
+  return Date.parse(latest.started_at) > oldestComputed
+}
+
+async function triggerRecompute(userId: string): Promise<void> {
+  const url = Deno.env.get('SUPABASE_URL')!
+  const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+  if (!serviceKey) throw new Error('SUPABASE_SERVICE_ROLE_KEY missing for recompute trigger')
+  const resp = await fetch(`${url}/functions/v1/recompute-meditation-baseline`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${serviceKey}` },
+    body: JSON.stringify({ user_id: userId }),
+  })
+  if (!resp.ok) throw new Error(`recompute returned ${resp.status}: ${await resp.text()}`)
+}
+
+function rowsToByPeriod(rows: RawBaselineRow[]): BaselinesByPeriod {
+  const out: BaselinesByPeriod = { w: null, m: null, q: null, all: null }
+  for (const r of rows) {
+    out[r.period] = {
+      session_count: r.session_count,
+      avg_deepening: r.avg_deepening,
+      avg_stability: r.avg_stability,
+      avg_beta: r.avg_beta,
+      avg_theta_normalized: r.avg_theta_normalized,
+      avg_ab_normalized: r.avg_ab_normalized,
+      avg_beta_normalized: r.avg_beta_normalized,
+    }
+  }
+  return out
+}

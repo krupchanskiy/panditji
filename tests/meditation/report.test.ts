@@ -4,8 +4,11 @@
 import { assert, assertEquals } from 'jsr:@std/assert@1'
 import {
   buildSessionReport, formatDateRu, formatTimeRu, hoursToHm,
-  SessionRow, CircleRow,
+  SessionRow, CircleRow, BaselineRow, BaselinesByPeriod,
 } from '../../supabase/functions/get-session-report/report.ts'
+import { resampleFromBins } from '../../supabase/functions/recompute-meditation-baseline/resample.ts'
+
+const noBaseline: BaselinesByPeriod | null = null
 
 const baseSession: SessionRow = {
   id: 'sess-123',
@@ -58,7 +61,7 @@ const circles16: CircleRow[] = Array.from({ length: 16 }, (_, i) => ({
 const location = { id: 'loc-1', name: 'Москва, дома' }
 
 Deno.test('shape: maps all session-level fields', () => {
-  const r = buildSessionReport(baseSession, circles16, location)
+  const r = buildSessionReport(baseSession, circles16, location, noBaseline, resampleFromBins)
   assertEquals(r.id, 'sess-123')
   assertEquals(r.durationMin, 60.6)
   assertEquals(r.circles, 16)
@@ -74,7 +77,7 @@ Deno.test('shape: maps all session-level fields', () => {
 })
 
 Deno.test('shape: perCircle reflects circles count and field order', () => {
-  const r = buildSessionReport(baseSession, circles16, location)
+  const r = buildSessionReport(baseSession, circles16, location, noBaseline, resampleFromBins)
   assert(r.perCircle !== null)
   assertEquals(r.perCircle!.length, 16)
   assertEquals(r.perCircle![0], { i: 1, alpha: 30, theta: 15, beta: 12 })
@@ -82,7 +85,7 @@ Deno.test('shape: perCircle reflects circles count and field order', () => {
 })
 
 Deno.test('compare: three metrics with per-circle today arrays, periods all null, hiddenReason="no_baseline"', () => {
-  const r = buildSessionReport(baseSession, circles16, location)
+  const r = buildSessionReport(baseSession, circles16, location, noBaseline, resampleFromBins)
   // Today values
   assertEquals(r.compare.deepening.todayValue, 63.2)
   assertEquals(r.compare.stability.todayValue, 3.01)
@@ -108,7 +111,7 @@ Deno.test('hiddenReason: preview session → "preview"', () => {
     excluded_from_stats: true,
     excluded_reason: 'preview',
   }
-  const r = buildSessionReport(s, circles16, location)
+  const r = buildSessionReport(s, circles16, location, noBaseline, resampleFromBins)
   assertEquals(r.kind, 'preview')
   assertEquals(r.compare.deepening.hiddenReason, 'preview')
   assertEquals(r.compare.stability.hiddenReason, 'preview')
@@ -121,15 +124,15 @@ Deno.test('hiddenReason: manually-excluded session → "manual_exclude"', () => 
     excluded_from_stats: true,
     excluded_reason: 'manual',
   }
-  const r = buildSessionReport(s, circles16, location)
+  const r = buildSessionReport(s, circles16, location, noBaseline, resampleFromBins)
   assertEquals(r.compare.deepening.hiddenReason, 'manual_exclude')
 })
 
 Deno.test('hiddenReason: short / long duration → "nonstandard_duration"', () => {
-  const short = buildSessionReport({ ...baseSession, duration_category: 'short' }, circles16, location)
+  const short = buildSessionReport({ ...baseSession, duration_category: 'short' }, circles16, location, noBaseline, resampleFromBins)
   assertEquals(short.compare.deepening.hiddenReason, 'nonstandard_duration')
 
-  const long = buildSessionReport({ ...baseSession, duration_category: 'long' }, circles16, location)
+  const long = buildSessionReport({ ...baseSession, duration_category: 'long' }, circles16, location, noBaseline, resampleFromBins)
   assertEquals(long.compare.deepening.hiddenReason, 'nonstandard_duration')
 })
 
@@ -140,7 +143,7 @@ Deno.test('hiddenReason: excluded wins over nonstandard duration', () => {
     excluded_from_stats: true,
     excluded_reason: 'manual',
   }
-  const r = buildSessionReport(s, circles16, location)
+  const r = buildSessionReport(s, circles16, location, noBaseline, resampleFromBins)
   assertEquals(r.compare.deepening.hiddenReason, 'manual_exclude')
 })
 
@@ -151,14 +154,14 @@ Deno.test('signal.shift: filled when both at_sec and severity present', () => {
     signal_shift_severity: 'high',
     deepening_reliable: false,
   }
-  const r = buildSessionReport(s, circles16, location)
+  const r = buildSessionReport(s, circles16, location, noBaseline, resampleFromBins)
   assertEquals(r.signal.shift, { atSec: 1620, atMinute: 27, severity: 'high' })
   assertEquals(r.signal.deepeningReliable, false)
 })
 
 Deno.test('perCircle: null when circles not confirmed (empty rows)', () => {
   const s: SessionRow = { ...baseSession, circles: null, pace_min_per_circle: null }
-  const r = buildSessionReport(s, [], location)
+  const r = buildSessionReport(s, [], location, noBaseline, resampleFromBins)
   assertEquals(r.perCircle, null)
   assertEquals(r.circles, null)
   // compare arrays empty (no circles to derive per-circle from)
@@ -166,23 +169,23 @@ Deno.test('perCircle: null when circles not confirmed (empty rows)', () => {
 })
 
 Deno.test('location: null when no row provided', () => {
-  const r = buildSessionReport({ ...baseSession, location_id: null }, circles16, null)
+  const r = buildSessionReport({ ...baseSession, location_id: null }, circles16, null, noBaseline, resampleFromBins)
   assertEquals(r.location, null)
 })
 
 Deno.test('whoopSleep: null when no Whoop data yet', () => {
   const s: SessionRow = { ...baseSession, whoop_sleep_hours: null, whoop_recovery_pct: null }
-  const r = buildSessionReport(s, circles16, location)
+  const r = buildSessionReport(s, circles16, location, noBaseline, resampleFromBins)
   assertEquals(r.context.whoopSleep, null)
   assertEquals(r.context.whoopRecovery, null)
 })
 
 Deno.test('interpretations: pass through; null when absent', () => {
-  const r = buildSessionReport(baseSession, circles16, location)
+  const r = buildSessionReport(baseSession, circles16, location, noBaseline, resampleFromBins)
   assertEquals(r.caption.main, 'Умеренное углубление: Theta выросла с 14% до 22%.')
   assertEquals(r.phases!.length, 1)
 
-  const empty = buildSessionReport({ ...baseSession, interpretations: null }, circles16, location)
+  const empty = buildSessionReport({ ...baseSession, interpretations: null }, circles16, location, noBaseline, resampleFromBins)
   assertEquals(empty.caption.main, null)
   assertEquals(empty.caption.calm, null)
   assertEquals(empty.phases, null)
@@ -206,4 +209,102 @@ Deno.test('hoursToHm: rounds minutes correctly, carries at 60', () => {
   assertEquals(hoursToHm(7.25), '7:15')
   assertEquals(hoursToHm(8.99), '8:59')      // 0.99×60 = 59.4 → 59
   assertEquals(hoursToHm(8.999), '9:00')     // 0.999×60 = 59.94 → 60 → carry
+})
+
+/* ── baseline integration ───────────────────────────────────────────────── */
+
+function makeBaseline(overrides: Partial<BaselineRow> = {}): BaselineRow {
+  return {
+    session_count: 20,
+    avg_deepening: 45,
+    avg_stability: 2.7,
+    avg_beta: 13,
+    avg_theta_normalized: Array.from({ length: 16 }, (_, i) => 13 + i * 0.5),
+    avg_ab_normalized:    Array.from({ length: 16 }, () => 2.5),
+    avg_beta_normalized:  Array.from({ length: 16 }, () => 13),
+    ...overrides,
+  }
+}
+
+Deno.test('baseline: full set for all periods → periods filled, hiddenReason=null', () => {
+  const baselines: BaselinesByPeriod = {
+    w: makeBaseline({ session_count: 5, avg_deepening: 40 }),
+    m: makeBaseline({ session_count: 20, avg_deepening: 45 }),
+    q: makeBaseline({ session_count: 60, avg_deepening: 48 }),
+    all: makeBaseline({ session_count: 200, avg_deepening: 50 }),
+  }
+  const r = buildSessionReport(baseSession, circles16, location, baselines, resampleFromBins)
+
+  assertEquals(r.compare.deepening.hiddenReason, null)
+  assertEquals(r.compare.deepening.periods.m!.baselineValue, 45)
+  assertEquals(r.compare.deepening.periods.m!.sessionCount, 20)
+  // deltaPct = (63.2 - 45) / 45 * 100 ≈ 40.4
+  assert(Math.abs(r.compare.deepening.periods.m!.deltaPct - 40.4) < 0.5)
+  // baselinePerCircle resampled to N=16 → length 16
+  assertEquals(r.compare.deepening.periods.m!.baselinePerCircle.length, 16)
+})
+
+Deno.test('baseline: periods under MIN_SESSIONS → null individually', () => {
+  const baselines: BaselinesByPeriod = {
+    w: makeBaseline({ session_count: 3 }),       // below min → null
+    m: makeBaseline({ session_count: 20 }),
+    q: null,                                     // missing → null
+    all: makeBaseline({ session_count: 4 }),    // below min → null
+  }
+  const r = buildSessionReport(baseSession, circles16, location, baselines, resampleFromBins)
+  assertEquals(r.compare.deepening.periods.w, null)
+  assert(r.compare.deepening.periods.m !== null)
+  assertEquals(r.compare.deepening.periods.q, null)
+  assertEquals(r.compare.deepening.periods.all, null)
+  // At least one period exists → hidden reason cleared
+  assertEquals(r.compare.deepening.hiddenReason, null)
+})
+
+Deno.test('baseline: every period below min → hiddenReason="no_baseline"', () => {
+  const baselines: BaselinesByPeriod = {
+    w: makeBaseline({ session_count: 2 }),
+    m: makeBaseline({ session_count: 4 }),
+    q: null,
+    all: makeBaseline({ session_count: 3 }),
+  }
+  const r = buildSessionReport(baseSession, circles16, location, baselines, resampleFromBins)
+  assertEquals(r.compare.deepening.hiddenReason, 'no_baseline')
+  assertEquals(r.compare.deepening.periods.m, null)
+})
+
+Deno.test('baseline: excluded session ignores baselines → hiddenReason="preview"', () => {
+  const baselines: BaselinesByPeriod = {
+    w: makeBaseline(), m: makeBaseline(), q: makeBaseline(), all: makeBaseline(),
+  }
+  const s: SessionRow = {
+    ...baseSession,
+    session_kind: 'preview', excluded_from_stats: true, excluded_reason: 'preview',
+  }
+  const r = buildSessionReport(s, circles16, location, baselines, resampleFromBins)
+  assertEquals(r.compare.deepening.hiddenReason, 'preview')
+  assertEquals(r.compare.deepening.periods.m, null)
+})
+
+Deno.test('baseline: per-circle resampled to N != 16 (12-round session)', () => {
+  const circles12: CircleRow[] = Array.from({ length: 12 }, (_, i) => ({
+    circle_num: i + 1,
+    alpha_rel: 30, theta_rel: 14, beta_rel: 12, ab_index: 2.5,
+  }))
+  const baselines: BaselinesByPeriod = {
+    w: null, m: makeBaseline({ session_count: 10 }), q: null, all: null,
+  }
+  const s: SessionRow = { ...baseSession, circles: 12 }
+  const r = buildSessionReport(s, circles12, location, baselines, resampleFromBins)
+  // 12 circles today → 12 baseline points resampled from the 16-bin array.
+  assertEquals(r.compare.deepening.periods.m!.baselinePerCircle.length, 12)
+  assertEquals(r.compare.deepening.todayPerCircle.length, 12)
+})
+
+Deno.test('baseline: deltaPct handles zero baseline gracefully', () => {
+  const baselines: BaselinesByPeriod = {
+    w: null, m: makeBaseline({ session_count: 10, avg_deepening: 0 }), q: null, all: null,
+  }
+  const r = buildSessionReport(baseSession, circles16, location, baselines, resampleFromBins)
+  // Avoid Infinity / NaN — clamp to 0%.
+  assertEquals(r.compare.deepening.periods.m!.deltaPct, 0)
 })

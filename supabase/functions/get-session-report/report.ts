@@ -4,9 +4,10 @@
  * (deepening / stability / beta) — third one is Beta as background of mental
  * activity, not longestCalm. longestCalm sits in metadata as a single number.
  *
- * Baseline comparisons are wired in but always null at this point —
- * recompute-meditation-baseline + comparator land in a later block. The shape
- * is final so the PWA can be built against it. */
+ * Baseline comparisons fill in when baselines are provided (per the Q3 lazy-pull
+ * decision: caller loads them right before mapping). If baselines are absent
+ * OR every period has fewer than the minimum sessions, hiddenReason becomes
+ * 'no_baseline' and periods stay null. */
 
 export type Phase = {
   label: string
@@ -139,13 +140,36 @@ export type LocationRow = {
   name: string
 }
 
+/* One row from meditation_baseline, narrowed. Caller supplies one row per period
+ * for whichever calm_only flag the user selected (or null when row absent). */
+export type BaselineRow = {
+  session_count: number
+  avg_deepening: number | null
+  avg_stability: number | null
+  avg_beta: number | null
+  avg_theta_normalized: number[] | null
+  avg_ab_normalized: number[] | null
+  avg_beta_normalized: number[] | null
+}
+
+export type BaselinesByPeriod = {
+  w: BaselineRow | null
+  m: BaselineRow | null
+  q: BaselineRow | null
+  all: BaselineRow | null
+}
+
+const MIN_BASELINE_SESSIONS = 5
+
 export function buildSessionReport(
   s: SessionRow,
   circles: CircleRow[],
   location: LocationRow | null,
+  baselines: BaselinesByPeriod | null,
+  resampleFn: (bins: number[], targetN: number) => number[],
 ): SessionReport {
   const circlesConfirmed = s.circles !== null && circles.length > 0
-  const hiddenReason = pickHiddenReason(s)
+  const N = circlesConfirmed ? s.circles! : 0
 
   const perCircle = circlesConfirmed
     ? circles
@@ -154,23 +178,31 @@ export function buildSessionReport(
         .map(c => ({ i: c.circle_num, alpha: c.alpha_rel, theta: c.theta_rel, beta: c.beta_rel }))
     : null
 
+  const baseHidden = pickHiddenReason(s)
+
   const deepening = makeCompare({
     todayValue: s.deepening_pct ?? 0,
     todayPerCircle: perCircle ? perCircle.map(c => c.theta) : [],
     unit: '%',
-    hiddenReason,
+    baselines, baseHidden, N, resampleFn,
+    valueOf: b => b.avg_deepening,
+    binsOf: b => b.avg_theta_normalized,
   })
   const stability = makeCompare({
     todayValue: s.ab_index_median,
     todayPerCircle: circlesConfirmed ? circles.map(c => c.ab_index) : [],
     unit: 'index',
-    hiddenReason,
+    baselines, baseHidden, N, resampleFn,
+    valueOf: b => b.avg_stability,
+    binsOf: b => b.avg_ab_normalized,
   })
   const beta = makeCompare({
     todayValue: s.beta_median_rel,
     todayPerCircle: perCircle ? perCircle.map(c => c.beta) : [],
     unit: '%',
-    hiddenReason,
+    baselines, baseHidden, N, resampleFn,
+    valueOf: b => b.avg_beta,
+    binsOf: b => b.avg_beta_normalized,
   })
 
   return {
@@ -230,6 +262,7 @@ export function buildSessionReport(
 
 /* ── helpers ───────────────────────────────────────────────────────────── */
 
+/* "Hard" reasons that suppress comparisons regardless of baseline availability. */
 function pickHiddenReason(s: SessionRow): HiddenReason {
   if (s.excluded_from_stats) {
     return s.excluded_reason === 'preview' ? 'preview' : 'manual_exclude'
@@ -237,23 +270,74 @@ function pickHiddenReason(s: SessionRow): HiddenReason {
   if (s.duration_category === 'short' || s.duration_category === 'long') {
     return 'nonstandard_duration'
   }
-  /* Comparisons are wired but baseline isn't computed yet — frontend hides the
-   * comparison row with this code. Will become null once baseline lands. */
-  return 'no_baseline'
+  return null
 }
 
 function makeCompare(p: {
   todayValue: number
   todayPerCircle: number[]
   unit: '%' | 'index'
-  hiddenReason: HiddenReason
+  baselines: BaselinesByPeriod | null
+  baseHidden: HiddenReason
+  N: number
+  resampleFn: (bins: number[], n: number) => number[]
+  valueOf: (b: BaselineRow) => number | null
+  binsOf: (b: BaselineRow) => number[] | null
 }): PerCircleCompare {
+  /* Hard-hide overrides everything else. */
+  if (p.baseHidden !== null) {
+    return {
+      todayValue: round2(p.todayValue),
+      todayPerCircle: p.todayPerCircle.map(round2),
+      unit: p.unit,
+      periods: { w: null, m: null, q: null, all: null },
+      hiddenReason: p.baseHidden,
+    }
+  }
+
+  const periods = {
+    w: makePeriod(p.baselines?.w ?? null, p),
+    m: makePeriod(p.baselines?.m ?? null, p),
+    q: makePeriod(p.baselines?.q ?? null, p),
+    all: makePeriod(p.baselines?.all ?? null, p),
+  }
+  const anyAvailable = periods.w || periods.m || periods.q || periods.all
+
   return {
     todayValue: round2(p.todayValue),
     todayPerCircle: p.todayPerCircle.map(round2),
     unit: p.unit,
-    periods: { w: null, m: null, q: null, all: null },
-    hiddenReason: p.hiddenReason,
+    periods,
+    hiddenReason: anyAvailable ? null : 'no_baseline',
+  }
+}
+
+function makePeriod(
+  row: BaselineRow | null,
+  p: {
+    todayValue: number
+    N: number
+    resampleFn: (bins: number[], n: number) => number[]
+    valueOf: (b: BaselineRow) => number | null
+    binsOf: (b: BaselineRow) => number[] | null
+  },
+): PerCirclePeriodComparison | null {
+  if (!row) return null
+  if (row.session_count < MIN_BASELINE_SESSIONS) return null
+
+  const value = p.valueOf(row)
+  const bins = p.binsOf(row)
+  if (value === null || bins === null) return null
+
+  // Avoid divide-by-zero on deltaPct.
+  const deltaPct = value !== 0 ? ((p.todayValue - value) / value) * 100 : 0
+  const baselinePerCircle = p.N > 0 ? p.resampleFn(bins, p.N) : []
+
+  return {
+    baselineValue: round2(value),
+    baselinePerCircle,
+    deltaPct: round1(deltaPct),
+    sessionCount: row.session_count,
   }
 }
 
@@ -285,6 +369,9 @@ export function hoursToHm(h: number): string {
   return `${hours}:${String(minutes).padStart(2, '0')}`
 }
 
+function round1(v: number): number {
+  return Math.round(v * 10) / 10
+}
 function round2(v: number): number {
   return Math.round(v * 100) / 100
 }
