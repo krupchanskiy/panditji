@@ -3,147 +3,1688 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<title>Пандитджи — вход</title>
+<title>Пандитджи</title>
 <link rel="icon" type="image/png" sizes="32x32" href="assets/icons/pand32.png">
 <link rel="icon" type="image/png" sizes="16x16" href="assets/icons/pand16.png">
 <link rel="apple-touch-icon" href="assets/icons/pand192.png">
 <link rel="manifest" href="manifest.webmanifest">
-<meta name="theme-color" content="#1f2024">
-<script src="https://cdn.tailwindcss.com"></script>
+<meta name="theme-color" content="#f4f3f5">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=EB+Garamond:ital,wght@0,400;0,500;1,400;1,500&display=swap" rel="stylesheet">
+
 <style>
-  :root {
-    --bg:        oklch(0.965 0.010 235);
-    --ink:       oklch(0.32 0.060 250);
-    --ink-2:     oklch(0.25 0.060 250);
-    --text:      oklch(0.27 0.030 245);
-    --text-2:    oklch(0.50 0.022 240);
-    --text-3:    oklch(0.62 0.015 240);
-    --terra:     oklch(0.74 0.095 28);
-    --terra-deep:oklch(0.60 0.115 25);
-  }
-  html, body { min-height: 100vh; }
-  body {
-    font-family: 'Manrope', ui-sans-serif, sans-serif;
-    color: var(--text);
-    -webkit-font-smoothing: antialiased;
-    background:
-      radial-gradient(80% 70% at 85% 5%,  oklch(0.85 0.05 250 / 0.32) 0%, transparent 75%),
-      radial-gradient(75% 65% at 8% 28%,  oklch(0.84 0.045 230 / 0.32) 0%, transparent 78%),
-      radial-gradient(85% 60% at 95% 80%, oklch(0.86 0.04 290 / 0.22) 0%, transparent 75%),
-      radial-gradient(70% 55% at 12% 100%, oklch(0.82 0.045 30 / 0.18) 0%, transparent 80%),
-      linear-gradient(180deg, oklch(0.965 0.010 235), oklch(0.94 0.016 235));
-    background-attachment: fixed;
-  }
-  .font-serif-m { font-family: 'EB Garamond', Georgia, serif; }
-  .tracking-eyebrow { letter-spacing: 0.12em; }
-  .card {
-    width: 380px;
-    border-radius: 28px;
-    background: rgba(255,255,255,0.6);
-    backdrop-filter: blur(22px) saturate(140%);
-    -webkit-backdrop-filter: blur(22px) saturate(140%);
-    border: 1px solid rgba(255,255,255,0.7);
-    box-shadow:
-      0 1px 0 rgba(255,255,255,0.9) inset,
-      0 8px 24px -16px oklch(0.30 0.06 250 / 0.20),
-      0 40px 80px -30px oklch(0.30 0.06 250 / 0.30);
-  }
-  input[type="email"] {
-    width: 100%;
-    border: 1px solid color-mix(in oklch, var(--ink) 18%, transparent);
-    background: rgba(255,255,255,0.7);
-    border-radius: 14px;
-    padding: 12px 14px;
-    font-family: inherit;
-    font-size: 15px;
-    color: var(--ink-2);
-    outline: none;
-    transition: border-color .2s ease;
-  }
-  input[type="email"]:focus { border-color: var(--terra-deep); }
-  button.submit {
-    width: 100%;
-    background: var(--ink);
-    color: white;
-    border-radius: 14px;
-    padding: 12px;
-    font-weight: 600;
-    font-size: 15px;
-    transition: opacity .2s ease;
-  }
-  button.submit:hover { opacity: 0.92; }
-  button.submit:disabled { opacity: 0.5; cursor: not-allowed; }
-  .accent-line {
-    height: 1px;
-    background: linear-gradient(90deg, transparent, color-mix(in oklch, var(--terra) 70%, transparent), transparent);
-  }
+:root {
+  /* Палитра — единая токен-система Panditji (см. design_handoff_home). */
+  --bg:        oklch(0.965 0.010 235);
+  --bg-deep:   oklch(0.93  0.018 240);
+  --hairline:  oklch(0.88  0.018 235);
+
+  --ink:       oklch(0.32 0.060 250);
+  --ink-2:     oklch(0.25 0.060 250);
+  --ink-soft:  oklch(0.44 0.055 250);
+
+  --text:      oklch(0.27 0.030 245);
+  --text-2:    oklch(0.50 0.022 240);
+  --text-3:    oklch(0.62 0.015 240);
+  --text-4:    oklch(0.72 0.010 240);
+
+  --terra:      oklch(0.74 0.095 28);
+  --terra-deep: oklch(0.60 0.115 25);
+  --terra-soft: oklch(0.93 0.035 35);
+
+  --sage:       oklch(0.74 0.065 225);
+  --sage-deep:  oklch(0.52 0.085 235);
+  --sage-soft:  oklch(0.92 0.035 225);
+
+  --gold:       oklch(0.76 0.060 290);
+  --gold-deep:  oklch(0.50 0.10  295);
+
+  --green:      oklch(0.62 0.10 150);
+  --green-deep: oklch(0.46 0.085 150);
+  --green-soft: oklch(0.93 0.030 150);
+
+  --neg:        oklch(0.62 0.085 28);
+  --neg-deep:   oklch(0.50 0.10  25);
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; min-height: 100vh; }
+body {
+  font-family: 'Manrope', ui-sans-serif, system-ui, sans-serif;
+  font-size: 14px;
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  background:
+    radial-gradient(80% 70% at 85% 5%,  oklch(0.85 0.05 250 / 0.20) 0%, transparent 75%),
+    radial-gradient(75% 65% at 8% 28%,  oklch(0.84 0.045 230 / 0.22) 0%, transparent 78%),
+    radial-gradient(85% 60% at 95% 80%, oklch(0.86 0.04 290 / 0.16) 0%, transparent 75%),
+    radial-gradient(70% 55% at 12% 100%, oklch(0.82 0.045 30 / 0.14) 0%, transparent 80%),
+    linear-gradient(180deg, oklch(0.965 0.010 235), oklch(0.94 0.016 235));
+  background-attachment: fixed;
+  min-height: 100dvh;
+}
+.num { font-feature-settings: "tnum" 1; font-variant-numeric: tabular-nums; }
+.font-serif-m { font-family: 'EB Garamond', Georgia, serif; }
+.sep { color: var(--text-4); margin: 0 0.4em; font-weight: 500; }
+
+/* ============ Контейнер страницы (мобильный, base 360px) ============ */
+.app {
+  width: 100%;
+  max-width: 480px;
+  margin: 0 auto;
+  padding: 14px 0 56px;
+  position: relative;
+}
+
+/* ============ PAGE META (шапка) — 3-колонки вокруг лого ============ */
+.page-meta--capsule {
+  position: relative;
+  margin: 4px 16px 18px;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 0 14px;
+  padding: 0;
+  min-height: 52px;
+}
+.page-meta--capsule .pm-left {
+  display: flex; flex-direction: column;
+  align-items: flex-start; justify-content: center; gap: 4px;
+  min-width: 0;
+}
+.page-meta--capsule .pm-right {
+  display: flex; flex-direction: column;
+  align-items: flex-end; justify-content: center; gap: 4px;
+  min-width: 0;
+}
+.page-meta--capsule .pm-date {
+  display: inline-flex; align-items: baseline; gap: 6px;
+  font-family: 'EB Garamond', Georgia, serif;
+  line-height: 1;
+}
+.page-meta--capsule .pm-day {
+  font-size: 26px; font-weight: 500; color: var(--ink-2);
+  letter-spacing: -0.015em; line-height: 0.9;
+  font-feature-settings: "lnum" 1;
+}
+.page-meta--capsule .pm-month {
+  font-size: 18px; font-weight: 500; color: var(--ink-2);
+  font-style: italic; line-height: 1;
+}
+.page-meta--capsule .pm-vaish-chip {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-family: 'EB Garamond', Georgia, serif;
+  font-style: italic; font-size: 13px;
+  color: var(--terra-deep);
+  white-space: nowrap;
+}
+.page-meta--capsule .pm-vaish-chip svg { color: var(--terra-deep); opacity: 0.9; }
+.page-meta--capsule .pm-loc {
+  font-size: 12px; font-weight: 500;
+  letter-spacing: 0.005em;
+  color: var(--text-2);
+  display: inline-flex; align-items: center; gap: 6px;
+  white-space: nowrap;
+  cursor: pointer;
+  background: transparent; border: 0; padding: 0;
+  font-family: inherit;
+}
+.page-meta--capsule .pm-loc::before {
+  content: ""; width: 5px; height: 5px; border-radius: 50%;
+  background: var(--terra-deep);
+  box-shadow: 0 0 0 3px color-mix(in oklch, var(--terra) 22%, transparent);
+}
+.page-meta--capsule .pm-temp {
+  font-size: 16px; font-weight: 600; color: var(--ink-2);
+  letter-spacing: -0.01em; line-height: 1;
+  display: inline-flex; align-items: baseline; gap: 4px;
+}
+
+/* hairline under the diary header */
+.page-meta--capsule::after {
+  content: "";
+  position: absolute;
+  left: 0; right: 0; bottom: -8px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, color-mix(in oklch, var(--ink) 16%, transparent), transparent);
+}
+
+.brand-mark {
+  width: 52px; height: 52px;
+  border-radius: 50%;
+  opacity: 0.95;
+  filter: drop-shadow(0 4px 12px oklch(0.30 0.06 250 / 0.20));
+  flex: none;
+  display: block;
+}
+
+/* ============ КАРТОЧКА .hc ============ */
+.hc {
+  margin: 0 14px 14px;
+  background: rgba(255,255,255,0.55);
+  border: 1px solid rgba(255,255,255,0.72);
+  backdrop-filter: blur(22px) saturate(140%);
+  -webkit-backdrop-filter: blur(22px) saturate(140%);
+  border-radius: 18px;
+  padding: 14px 14px;
+  box-shadow:
+    0 1px 0 rgba(255,255,255,0.9) inset,
+    0 1px 2px oklch(0.30 0.06 250 / 0.04),
+    0 10px 26px -18px oklch(0.30 0.06 250 / 0.18);
+  position: relative;
+}
+
+.hc--japa {
+  background:
+    radial-gradient(110% 90% at 0% 0%, color-mix(in oklch, var(--green) 18%, transparent), transparent 60%),
+    linear-gradient(180deg, color-mix(in oklch, var(--green-soft) 70%, white 30%) 0%, rgba(255,255,255,0.55) 100%);
+  border-color: color-mix(in oklch, var(--green) 28%, rgba(255,255,255,0.7));
+}
+.hc--japa .card-title-text { color: var(--green-deep); }
+
+.hc--health {
+  background:
+    radial-gradient(110% 90% at 100% 0%, color-mix(in oklch, var(--sage) 22%, transparent), transparent 60%),
+    linear-gradient(180deg, color-mix(in oklch, var(--sage-soft) 50%, white 50%) 0%, rgba(255,255,255,0.55) 100%);
+  border-color: color-mix(in oklch, var(--sage) 28%, rgba(255,255,255,0.7));
+}
+.hc--health .card-title-text { color: var(--sage-deep); }
+
+.hc--tasks {
+  background:
+    radial-gradient(110% 90% at 0% 100%, color-mix(in oklch, var(--terra) 18%, transparent), transparent 60%),
+    linear-gradient(180deg, color-mix(in oklch, var(--terra-soft) 60%, white 40%) 0%, rgba(255,255,255,0.55) 100%);
+  border-color: color-mix(in oklch, var(--terra) 28%, rgba(255,255,255,0.7));
+}
+.hc--tasks .card-title-text { color: var(--terra-deep); }
+
+.hc--cal {
+  background:
+    radial-gradient(110% 90% at 100% 100%, color-mix(in oklch, var(--gold) 22%, transparent), transparent 60%),
+    linear-gradient(180deg, color-mix(in oklch, oklch(0.92 0.045 290) 50%, white 50%) 0%, rgba(255,255,255,0.55) 100%);
+  border-color: color-mix(in oklch, var(--gold) 30%, rgba(255,255,255,0.7));
+}
+.hc--cal .card-title-text { color: var(--gold-deep); }
+
+/* Свёрнутая карточка: cursor + chevron-вниз снизу */
+.hc[data-collapsed="true"] { cursor: pointer; padding-bottom: 22px; }
+.hc[data-collapsed="true"]::before {
+  content: "";
+  position: absolute;
+  left: 50%; bottom: 6px;
+  width: 16px; height: 8px;
+  transform: translateX(-50%);
+  background-image:
+    linear-gradient(135deg, transparent 40%, color-mix(in oklch, var(--ink) 30%, transparent) 40% 55%, transparent 55%),
+    linear-gradient(45deg,  transparent 40%, color-mix(in oklch, var(--ink) 30%, transparent) 40% 55%, transparent 55%);
+  background-size: 8px 8px;
+  background-repeat: no-repeat;
+  background-position: 0 0, 8px 0;
+  opacity: 0.5;
+  pointer-events: none;
+}
+.hc[data-collapsed="true"]:hover::before { opacity: 0.85; }
+
+/* Вертикальная цветная полоса слева */
+.hc::after {
+  content: "";
+  position: absolute; left: 0; top: 18px; bottom: 18px;
+  width: 3px; border-radius: 0 3px 3px 0;
+  opacity: 0.55;
+  pointer-events: none;
+}
+.hc--japa::after   { background: var(--green-deep); }
+.hc--health::after { background: var(--sage-deep); }
+.hc--tasks::after  { background: var(--terra-deep); }
+.hc--cal::after    { background: var(--gold-deep); }
+
+/* ============ Шапка карточки ============ */
+.hc-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
+.card-title { display: flex; align-items: baseline; gap: 0; flex: none; }
+.card-title-btn {
+  display: inline-flex; align-items: center; gap: 4px;
+  background: transparent; border: 0; padding: 0; cursor: pointer;
+  font: inherit;
+  color: inherit;
+  text-decoration: none;
+}
+.card-title-text {
+  font-size: 17px; font-weight: 700;
+  color: var(--ink-2);
+  letter-spacing: -0.005em;
+}
+.card-title-arrow {
+  display: inline-flex; opacity: 0.55; color: var(--ink-soft);
+  margin-left: 2px; margin-top: 1px;
+}
+.card-title-btn:hover .card-title-arrow,
+.card-title-btn:focus-visible .card-title-arrow { opacity: 0.9; }
+
+.hc-head-meta {
+  font-family: 'EB Garamond', Georgia, serif;
+  font-style: italic;
+  font-size: 13px; color: var(--ink-soft); font-weight: 500;
+  display: inline-flex; align-items: center; gap: 5px;
+  text-align: right; line-height: 1.3;
+  letter-spacing: 0.005em;
+}
+.hc-head-meta--stack { flex-direction: column; align-items: flex-end; gap: 1px; line-height: 1.15; }
+.hh-line1 { font-family: 'EB Garamond', Georgia, serif; font-style: italic; font-size: 13.5px; color: var(--ink-soft); font-weight: 500; }
+.hh-line2 { font-family: 'Manrope', sans-serif; font-weight: 500; font-size: 11px; color: var(--text-3); letter-spacing: 0.005em; }
+.hc-head-meta .ov { color: var(--terra-deep); font-weight: 600; }
+.hc-head-meta--counters {
+  font-family: 'Manrope', sans-serif; font-style: normal;
+  font-size: 11px; color: var(--text-3);
+  display: inline-flex; flex-wrap: wrap; justify-content: flex-end;
+  row-gap: 1px; column-gap: 8px;
+  max-width: 210px; text-align: right; line-height: 1.4;
+}
+.hc-head-meta--counters > span { display: inline-flex; align-items: baseline; white-space: nowrap; gap: 4px; }
+
+/* Тело карточки */
+.hc-body { display: flex; flex-direction: column; gap: 12px; }
+.hc-divider { height: 1px; background: linear-gradient(90deg, transparent, var(--hairline), transparent); opacity: 0.7; margin: 2px 0; }
+
+/* ============ 3-метрики (Джапа) ============ */
+.m-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.m-cell { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.m-label {
+  font-size: 9.5px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.10em; color: var(--text-3);
+  white-space: nowrap;
+}
+.m-today {
+  font-size: 24px; font-weight: 700;
+  color: var(--ink-2);
+  letter-spacing: -0.025em; line-height: 1.05;
+  display: flex; align-items: baseline; gap: 1px;
+}
+.m-unit { font-size: 12px; font-weight: 600; opacity: 0.55; margin-left: 1px; }
+.m-baseline { font-size: 10.5px; color: var(--text-3); font-weight: 500; line-height: 1.25; margin-top: 1px; }
+.m-baseline-empty { color: var(--text-4); }
+.m-delta { font-size: 11px; font-weight: 600; line-height: 1.2; margin-top: 1px; }
+.m-delta-empty { color: transparent; }
+
+/* Дельты */
+.delta { font-variant-numeric: tabular-nums; font-weight: 700; letter-spacing: -0.005em; }
+.delta--pos     { color: var(--green-deep); }
+.delta--neg     { color: var(--neg-deep); }
+.delta--neutral { color: var(--text-2); font-weight: 600; }
+
+/* ============ Стрики / sparse / milestone ============ */
+.streaks { display: flex; flex-direction: column; gap: 1px; margin-top: 2px; }
+.streak-line {
+  font-size: 11.5px; color: var(--text-3); font-weight: 500;
+  letter-spacing: 0.005em;
+  display: flex; align-items: center; gap: 8px;
+}
+.streak-line::before {
+  content: ""; width: 14px; height: 1px;
+  background: var(--text-4); opacity: 0.5; flex: none;
+}
+.sparse-note {
+  font-family: 'EB Garamond', Georgia, serif;
+  font-style: italic; font-size: 16px; font-weight: 500;
+  color: var(--text-2); line-height: 1.45;
+}
+.milestone-line {
+  font-family: 'EB Garamond', Georgia, serif;
+  font-style: italic; font-size: 14px; color: var(--terra-deep);
+}
+
+/* ============ Кнопки действий ============ */
+.hc-actions { display: flex; gap: 8px; }
+.hc-actions--end {
+  justify-content: flex-end; padding-top: 2px;
+  border-top: 1px solid color-mix(in oklch, var(--hairline) 55%, transparent);
+  margin-top: 4px;
+}
+.act-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  font: inherit; cursor: pointer; padding: 8px 12px; border-radius: 999px;
+  font-size: 12.5px; font-weight: 600; letter-spacing: -0.005em;
+  transition: transform .12s ease, background .12s ease;
+  border: 0; background: transparent;
+  color: var(--ink-soft);
+  text-decoration: none;
+}
+.act-btn:active { transform: scale(0.97); }
+.act-btn--primary {
+  background: var(--ink-2); color: oklch(0.98 0.005 235);
+  padding: 9px 14px 9px 12px;
+  box-shadow: 0 4px 14px -6px oklch(0.30 0.06 250 / 0.50), 0 1px 0 rgba(255,255,255,0.2) inset;
+}
+.act-btn--primary svg { fill: currentColor; }
+.act-btn--ghost { padding: 8px 0; color: var(--ink-soft); }
+.act-btn--ghost:hover { color: var(--ink-2); }
+
+/* ============ Джапа — список сессий ============ */
+.sub-eyebrow {
+  font-family: 'EB Garamond', Georgia, serif;
+  font-style: italic; font-size: 13.5px; font-weight: 500;
+  color: var(--ink-soft);
+  margin-bottom: 4px;
+  letter-spacing: 0.005em;
+}
+.sessions-list { display: flex; flex-direction: column; }
+.sess-row {
+  display: flex; align-items: baseline; gap: 10px;
+  padding: 8px 0;
+  border-bottom: 1px solid color-mix(in oklch, var(--hairline) 60%, transparent);
+  font-size: 12.5px;
+  white-space: nowrap;
+  text-decoration: none; color: inherit;
+}
+.sess-row:last-child { border-bottom: 0; }
+.sess-date { color: var(--text-2); font-weight: 500; flex: none; min-width: 60px; }
+.sess-mid { color: var(--text-3); font-size: 11.5px; flex: 1; min-width: 0; }
+.sess-mid .sep { color: var(--text-4); margin: 0 4px; }
+.sess-deep { color: var(--ink-2); font-weight: 700; flex: none; }
+
+/* ============ Здоровье — кольца ============ */
+.hr-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; align-items: start; }
+.hr-cell {
+  display: flex; flex-direction: column; align-items: flex-start;
+  gap: 5px; min-width: 0;
+  padding-right: 4px;
+}
+.hr-row-top { display: flex; align-items: center; gap: 8px; width: 100%; }
+.hr-ring-wrap { position: relative; width: 38px; height: 38px; flex: none; }
+.hr-ring-baseline {
+  position: absolute; inset: 0;
+  pointer-events: none;
+  transform: rotate(calc(var(--bp, 0) * 3.6deg));
+}
+.hr-ring-baseline::before {
+  content: "";
+  position: absolute; left: 50%; top: 0;
+  width: 2px; height: 4px;
+  background: var(--ink-2);
+  transform: translate(-50%, -1px);
+  opacity: 0.55;
+  border-radius: 1px;
+}
+.hr-ring {
+  --p: 0;
+  width: 100%; height: 100%;
+  border-radius: 50%;
+  background: conic-gradient(currentColor calc(var(--p) * 1%), color-mix(in oklch, currentColor 10%, transparent) 0);
+  position: relative;
+}
+.hr-ring::after {
+  content: ""; position: absolute; inset: 4px;
+  background: rgba(255,255,255,0.95); border-radius: 50%;
+}
+.hr-num-big {
+  font-size: 19px; font-weight: 700; color: var(--ink-2);
+  letter-spacing: -0.02em; line-height: 1;
+  font-variant-numeric: tabular-nums;
+  display: flex; align-items: baseline; gap: 1px;
+}
+.hr-num-big .hr-num-unit { font-size: 10px; font-weight: 600; opacity: 0.55; }
+.hr-ring--sage { color: var(--sage-deep); }
+.hr-ring--ink  { color: var(--ink-soft); }
+.hr-ring--gold { color: var(--gold-deep); }
+.hr-label {
+  font-size: 9.5px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.10em; color: var(--text-3);
+  white-space: nowrap;
+}
+.hr-base {
+  font-family: 'EB Garamond', Georgia, serif;
+  font-style: italic; font-size: 12px; color: var(--text-3);
+  line-height: 1.15; white-space: nowrap;
+}
+.hr-delta { font-size: 11px; font-weight: 600; margin-top: 1px; line-height: 1.2; white-space: nowrap; }
+
+/* Дополнительные ряды (Здоровье в раскрытом) */
+.extra-grid { display: flex; flex-direction: column; }
+.extra-row {
+  display: flex; align-items: baseline; gap: 0;
+  padding: 10px 0;
+  border-bottom: 1px solid color-mix(in oklch, var(--hairline) 55%, transparent);
+}
+.extra-row:last-child { border-bottom: 0; }
+.extra-label { font-size: 13px; color: var(--text-2); font-weight: 500; flex: 1; min-width: 0; }
+.extra-today {
+  font-size: 14px; color: var(--ink-2); font-weight: 700; letter-spacing: -0.005em;
+  display: inline-flex; align-items: baseline; gap: 3px;
+  flex: none; min-width: 86px; justify-content: flex-end;
+  white-space: nowrap;
+}
+.extra-unit { font-size: 10.5px; font-weight: 600; opacity: 0.55; margin-left: 1px; }
+.extra-base { font-size: 10.5px; color: var(--text-3); flex: none; min-width: 88px; text-align: right; padding-left: 8px; white-space: nowrap; }
+.extra-meta { color: var(--text-3); font-style: italic; font-family: 'EB Garamond', Georgia, serif; font-size: 12px; font-weight: 500; }
+.extra-delta { font-size: 11.5px; flex: none; min-width: 56px; text-align: right; padding-left: 10px; }
+
+/* ============ Задачи ============ */
+.hb-checkbox {
+  width: 24px; height: 24px; border-radius: 7px;
+  background: rgba(255,255,255,0.7);
+  border: 1.5px solid color-mix(in oklch, var(--ink) 18%, transparent);
+  display: grid; place-items: center;
+  cursor: pointer; flex: none;
+  color: white;
+  transition: background .15s, border-color .15s;
+  padding: 0;
+}
+.hb-checkbox.is-checked {
+  background: var(--ink-2);
+  border-color: var(--ink-2);
+  box-shadow: 0 3px 8px -3px oklch(0.30 0.06 250 / 0.45);
+}
+.task-row {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 8px 0;
+  border-bottom: 1px solid color-mix(in oklch, var(--hairline) 55%, transparent);
+}
+.task-row:last-child { border-bottom: 0; }
+.task-row .task-text { flex: 1; min-width: 0; padding-top: 2px; }
+.task-row .task-text > div:first-child {
+  font-size: 14px; font-weight: 500; color: var(--text);
+  line-height: 1.35; text-wrap: pretty;
+}
+.task-row.is-done .task-text > div:first-child {
+  color: var(--text-3); text-decoration: line-through;
+  text-decoration-color: color-mix(in oklch, var(--text-3) 60%, transparent);
+}
+.task-time { font-size: 11px; color: var(--text-3); margin-top: 2px; }
+.task-row--tail {
+  padding-left: 10px;
+  border-left: 2px solid var(--terra);
+  border-bottom: 1px solid color-mix(in oklch, var(--hairline) 55%, transparent);
+  padding-top: 8px; padding-bottom: 8px;
+  padding-right: 0;
+  border-radius: 0;
+  background: transparent;
+}
+.task-since {
+  font-family: 'EB Garamond', Georgia, serif;
+  font-style: italic; font-size: 12.5px; color: var(--terra-deep);
+  margin-top: 1px;
+}
+
+.ov-group { display: flex; flex-direction: column; gap: 4px; }
+.ov-eyebrow {
+  font-family: 'EB Garamond', Georgia, serif;
+  font-style: italic; font-size: 13.5px; font-weight: 500;
+  color: var(--terra-deep);
+  margin-bottom: 2px; letter-spacing: 0.005em;
+}
+.today-group .ov-eyebrow { color: var(--ink-soft); margin-top: 4px; }
+.today-group { display: flex; flex-direction: column; }
+
+.add-input {
+  display: flex; align-items: center; gap: 8px;
+  padding: 10px 14px;
+  background: rgba(255,255,255,0.4);
+  border: 1px dashed color-mix(in oklch, var(--ink) 16%, transparent);
+  border-radius: 14px;
+  color: var(--text-3);
+  font-size: 13.5px; font-weight: 500;
+}
+.add-input input {
+  flex: 1; border: 0; background: transparent; outline: none;
+  font: inherit; color: var(--text); padding: 0;
+}
+.add-input input::placeholder { color: var(--text-3); }
+.add-enter { font-size: 12px; color: var(--text-4); opacity: 0.7; }
+.add-input svg { color: var(--ink-soft); opacity: 0.6; }
+
+/* Пустое / done состояние */
+.empty-block { display: flex; flex-direction: column; align-items: flex-start; gap: 12px; padding: 8px 0 2px; }
+.all-done-mark {
+  width: 44px; height: 44px; border-radius: 50%;
+  background: color-mix(in oklch, var(--sage-soft) 70%, white);
+  border: 1px solid color-mix(in oklch, var(--sage) 24%, transparent);
+  display: grid; place-items: center;
+  color: var(--sage-deep);
+}
+.done-collapsed {
+  width: 100%; padding: 10px 0 0;
+  border-top: 1px solid color-mix(in oklch, var(--hairline) 55%, transparent);
+}
+.done-eyebrow {
+  font-size: 11px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.12em; color: var(--text-3);
+}
+.done-list { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.done-item {
+  font-size: 13px; color: var(--text-3); text-decoration: line-through;
+  text-decoration-color: color-mix(in oklch, var(--text-3) 50%, transparent);
+  display: flex; align-items: center; gap: 8px;
+  font-weight: 400;
+}
+.check-mini {
+  width: 14px; height: 14px; border-radius: 4px;
+  background: var(--ink-2);
+  flex: none; display: inline-block;
+  position: relative;
+}
+.check-mini::after {
+  content: ""; position: absolute; left: 3px; top: 6px;
+  width: 3px; height: 6px;
+  border-right: 1.5px solid white; border-bottom: 1.5px solid white;
+  transform: rotate(45deg);
+}
+
+.task-more-btn {
+  align-self: flex-start;
+  margin-top: 4px; margin-left: 34px;
+  background: transparent; border: 0; padding: 4px 0;
+  font: inherit; cursor: pointer;
+  font-size: 12.5px; font-weight: 600; color: var(--ink-soft);
+  letter-spacing: -0.005em;
+}
+.task-more-btn:hover { color: var(--ink-2); }
+
+/* ============ Календарь ============ */
+.next-hero { display: flex; flex-direction: column; gap: 6px; padding: 4px 0; }
+.next-hero-meta { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.next-hero-in {
+  font-family: 'EB Garamond', Georgia, serif;
+  font-style: italic; font-size: 18px; color: var(--ink);
+  font-weight: 500; letter-spacing: -0.01em;
+  white-space: nowrap;
+}
+.next-hero-clock {
+  font-size: 14px; color: var(--text-2); font-weight: 700;
+  font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+.next-hero-clock::before {
+  content: "·"; margin-right: 8px; opacity: 0.7;
+  color: var(--text-3); font-style: normal; font-weight: 500;
+}
+.next-hero-title {
+  font-size: 16.5px; font-weight: 600; color: var(--ink-2);
+  letter-spacing: -0.005em; line-height: 1.3;
+  text-wrap: pretty;
+  display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap;
+}
+.next-hero-title .ne-cam { color: var(--gold-deep); opacity: 0.7; }
+.next-hero-tail {
+  font-family: 'EB Garamond', Georgia, serif;
+  font-style: italic; font-size: 13px; color: var(--text-3);
+  display: flex; align-items: center; gap: 8px;
+}
+.next-hero-tail .src-chip { font-family: 'Manrope', sans-serif; font-style: normal; }
+
+.src-chip {
+  display: inline-flex; align-items: center;
+  font-size: 9.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.10em;
+  color: var(--gold-deep);
+  padding: 2px 6px;
+  background: color-mix(in oklch, var(--gold) 14%, transparent);
+  border-radius: 999px;
+}
+.src-chip--sm { font-size: 9px; padding: 1px 5px; }
+
+.ev-group { display: flex; flex-direction: column; gap: 6px; }
+.ev-eyebrow.ev-eyebrow--italic {
+  font-family: 'EB Garamond', Georgia, serif;
+  font-style: italic; font-size: 13.5px;
+  color: var(--ink-soft);
+  text-transform: none; letter-spacing: 0; font-weight: 500;
+}
+.ev-timeline { position: relative; padding-left: 16px; }
+.ev-timeline::before {
+  content: ""; position: absolute;
+  left: 3px; top: 6px; bottom: 6px; width: 1px;
+  background: color-mix(in oklch, var(--ink) 14%, transparent);
+}
+.ev-tl-row {
+  display: grid; grid-template-columns: auto 1fr;
+  gap: 0 10px; align-items: baseline;
+  padding: 7px 0;
+  position: relative;
+}
+.ev-tl-row::before {
+  content: ""; position: absolute;
+  left: -16px; top: 14px;
+  width: 7px; height: 7px; border-radius: 50%;
+  background: transparent;
+  border: 1.5px solid var(--gold-deep);
+  box-sizing: border-box;
+}
+.ev-tl-row[data-work="false"]::before { border-color: var(--sage-deep); }
+.ev-tl-row[data-first="true"]::before {
+  background: var(--terra-deep);
+  border-color: var(--terra-deep);
+  box-shadow: 0 0 0 3px color-mix(in oklch, var(--terra) 22%, transparent);
+}
+.ev-tl-time {
+  font-size: 12.5px; font-weight: 700; color: var(--text-2);
+  font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+.ev-tl-mid { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.ev-tl-title {
+  font-size: 13.5px; font-weight: 500; color: var(--text);
+  display: flex; align-items: center; gap: 6px;
+  line-height: 1.3;
+}
+.ev-tl-meta {
+  font-family: 'EB Garamond', Georgia, serif;
+  font-style: italic; font-size: 12px; color: var(--text-3);
+  display: flex; align-items: center; gap: 6px;
+  font-weight: 500;
+}
+.ev-cam { color: var(--gold-deep); opacity: 0.65; display: inline-flex; }
+
+/* Загрузка */
+.hc-skeleton {
+  height: 92px;
+  background: linear-gradient(90deg, rgba(255,255,255,0.4), rgba(255,255,255,0.65), rgba(255,255,255,0.4));
+  border-radius: 12px;
+}
+.hc-error { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.hc-error-msg { font-family: 'EB Garamond', Georgia, serif; font-style: italic; color: var(--text-2); font-size: 14px; }
 </style>
 </head>
-<body class="min-h-screen flex items-center justify-center p-4">
+<body>
 
-<div class="card p-8">
-  <div class="flex items-center gap-2 mb-4">
-    <span class="inline-block w-4 h-px" style="background: var(--terra);"></span>
-    <span class="text-[10.5px] tracking-eyebrow uppercase font-semibold" style="color: var(--terra-deep);">Пандитджи</span>
-    <span class="flex-1 accent-line"></span>
-  </div>
-  <h1 class="font-serif-m text-[24px] leading-[1.3] mb-6" style="color: var(--ink-2);">Здравствуй. Введи свой email — пришлю ссылку для входа.</h1>
+<!-- Иконки фаз луны (для шапки) -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="moon-new" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.5"/></symbol>
+    <symbol id="moon-waxing-crescent" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M 12 3 A 9 9 0 0 1 12 21 A 5.5 9 0 0 0 12 3 Z" fill="currentColor"/></symbol>
+    <symbol id="moon-first-quarter" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M 12 3 A 9 9 0 0 1 12 21 L 12 3 Z" fill="currentColor"/></symbol>
+    <symbol id="moon-waxing-gibbous" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M 12 3 A 9 9 0 0 1 12 21 A 5.5 9 0 0 1 12 3 Z" fill="currentColor"/></symbol>
+    <symbol id="moon-full" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="currentColor"/></symbol>
+    <symbol id="moon-waning-gibbous" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M 12 3 A 9 9 0 0 0 12 21 A 5.5 9 0 0 0 12 3 Z" fill="currentColor"/></symbol>
+    <symbol id="moon-last-quarter" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M 12 3 A 9 9 0 0 0 12 21 L 12 3 Z" fill="currentColor"/></symbol>
+    <symbol id="moon-waning-crescent" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M 12 3 A 9 9 0 0 0 12 21 A 5.5 9 0 0 1 12 3 Z" fill="currentColor"/></symbol>
+  </defs>
+</svg>
 
-  <form id="login-form" class="space-y-3">
-    <input type="email" id="email" placeholder="ты@example.com" required autocomplete="email" />
-    <button type="submit" class="submit" id="submit-btn">Отправить ссылку</button>
-  </form>
-
-  <div id="sent" hidden class="space-y-2">
-    <p class="font-serif-m text-[18px] leading-[1.4]" style="color: var(--ink-2);">
-      Ссылка отправлена. Открой почту и нажми «Войти» — вернёшься сюда сам.
-    </p>
-    <p class="text-[12px]" style="color: var(--text-3);">Если письмо не пришло — посмотри в спаме.</p>
-  </div>
-
-  <div id="error" hidden class="mt-3 text-[13px]" style="color: var(--terra-deep);"></div>
+<div class="app">
+  <div id="page-meta"></div>
+  <section id="card-japa"   class="hc hc--japa"   data-collapsed="true"></section>
+  <section id="card-health" class="hc hc--health" data-collapsed="true"></section>
+  <section id="card-tasks"  class="hc hc--tasks"  data-collapsed="true"></section>
+  <section id="card-cal"    class="hc hc--cal"    data-collapsed="true"></section>
 </div>
 
 <script type="module">
-  import { db } from './js/db.js'
+import { db, requireAuth, formatHeaderDate } from './js/db.js'
 
-  /* Если уже залогинен — на утренний экран. */
-  const { data: { session } } = await db.auth.getSession()
-  if (session) {
-    window.location.replace('/morning.html')
+/* ?preview=1 — режим дизайн-превью с mock-данными, без auth и без БД.
+ * Используется для проверки визуала и сценариев. В проде роли не играет. */
+const PREVIEW = new URLSearchParams(location.search).get('preview') === '1'
+
+/* ────────────────────────────────────────────────────────────────
+ *  Auth-First: до рендера дашборда подтверждаем сессию.
+ * ──────────────────────────────────────────────────────────────── */
+const user = PREVIEW ? { id: 'preview' } : await requireAuth()
+if (!user) { /* requireAuth уже редиректнул */ throw new Error('no auth') }
+
+/* ────────────────────────────────────────────────────────────────
+ *  Утилиты (HTML-эскейп, форматтеры чисел/времени)
+ * ──────────────────────────────────────────────────────────────── */
+const esc = (s) => String(s == null ? '' : s)
+  .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+  .replace(/"/g, '&quot;').replace(/'/g, '&#39;')
+
+const pad2 = (n) => String(n).padStart(2, '0')
+
+const fmt = {
+  /* Дробное с русской запятой ("12,5") или целое. */
+  num(v, decimals = 0) {
+    if (v == null) return '—'
+    if (decimals === 0) return String(Math.round(v))
+    return v.toFixed(decimals).replace('.', ',')
+  },
+  /* "+18" / "−4" / "±0", с суффиксом. */
+  signed(v, opts = {}) {
+    const { decimals = 0, suffix = '' } = opts
+    if (v === 0) return `±0${suffix}`
+    const sign = v > 0 ? '+' : '−'
+    return `${sign}${this.num(Math.abs(v), decimals)}${suffix}`
+  },
+  /* Секунды в "M:SS". */
+  ms(sec) {
+    const a = Math.abs(sec || 0)
+    return `${Math.floor(a / 60)}:${pad2(a % 60)}`
+  },
+  /* Дельта-секунды в "+M:SS"/"−M:SS". */
+  signedMS(sec) {
+    if (sec === 0) return '±0:00'
+    const sign = sec >= 0 ? '+' : '−'
+    const a = Math.abs(sec)
+    return `${sign}${Math.floor(a / 60)}:${pad2(a % 60)}`
+  },
+  /* { h, m } → "H:MM". */
+  hm({ h, m }) { return `${h}:${pad2(m)}` },
+  /* Минуты → "1ч 28м" / "45 мин". */
+  durMin(min) {
+    if (min >= 60) {
+      const h = Math.floor(min / 60), m = min % 60
+      return m ? `${h}ч ${m}м` : `${h}ч`
+    }
+    return `${min} мин`
+  },
+  temp(t) { return `${t > 0 ? '+' : t < 0 ? '−' : ''}${Math.abs(t)}°C` },
+}
+
+/* Цвет дельты — pos/neg/neutral по правилам брифа:
+ *   inverted=true  → знак инвертируется (RHR: ниже = лучше)
+ *   neutral=true   → всегда нейтрально (Strain, вес)
+ *   |Δ| ≤ 5% базы  → нейтрально (deadzone) */
+function deltaTone(delta, baseline, opts = {}) {
+  const { inverted = false, neutral = false, deadZonePct = 5 } = opts
+  if (neutral || delta == null) return 'neutral'
+  if (baseline == null || baseline === 0) return 'neutral'
+  const pct = Math.abs(delta) / Math.abs(baseline) * 100
+  if (pct <= deadZonePct) return 'neutral'
+  const better = inverted ? delta < 0 : delta > 0
+  return better ? 'pos' : 'neg'
+}
+
+/* Иконка фазы луны по названию вайшнавского дня. */
+function vaishnavaIcon(name) {
+  const n = (name || '').toLowerCase()
+  if (n.includes('экадаши')) return '#moon-waning-crescent'
+  if (n.includes('двадаш')) return '#moon-waning-gibbous'
+  if (n.includes('пурнима') || n.includes('полнолу')) return '#moon-full'
+  if (n.includes('амавас') || n.includes('новолу'))   return '#moon-new'
+  return '#moon-waxing-gibbous'
+}
+
+/* Mock-данные для ?preview=1 — happy-path сценарий из дизайн-хендоффа. */
+const MOCK = {
+  japa: {
+    state: 'fresh',
+    session: { id: 's-2026-05-15', date: 'сегодня', durationMin: 60, circles: 16, ageHours: 3.2 },
+    metrics: {
+      deepening:   { today: 63, baseline: 45, deltaPct: 18 },
+      stability:   { today: 3.0, baseline: 2.7, deltaPct: 0.3 },
+      longestCalm: { today: 630, baseline: 440, deltaPct: 190, unit: 'sec' },
+    },
+    noCompareReason: null,
+    baselineSessionCount: 24,
+    streaks: { circles: '26 дней по 16 кругов', morning: '12 утренних подряд' },
+    milestone: null,
+    lastSessions: [
+      { id: 's-15', date: 'сегодня', durationMin: 60, circles: 16, deepening: 63 },
+      { id: 's-14', date: 'вчера',   durationMin: 58, circles: 16, deepening: 41 },
+      { id: 's-13', date: '13 мая',  durationMin: 62, circles: 16, deepening: 52 },
+      { id: 's-12', date: '12 мая',  durationMin: 59, circles: 16, deepening: 38 },
+      { id: 's-11', date: '11 мая',  durationMin: 64, circles: 16, deepening: 47 },
+    ],
+  },
+  health: {
+    state: 'fresh',
+    syncedAt: '06:14',
+    metrics: {
+      recovery: { today: 78, baseline: 71, delta: 7, inverted: false, unit: '%' },
+      sleep:    { today: { h: 7, m: 24 }, baseline: { h: 6, m: 58 }, deltaSec: 26 * 60, inverted: false },
+      strain:   { today: 12.5, baseline: 11.8, delta: 0.7, neutral: true },
+    },
+    streaks: ['12 ночей сон ≥ 7ч', '8 дней recov ≥ 70'],
+    extra: {
+      rhr:    { today: 56, baseline: 60, delta: -4, inverted: true },
+      hrv:    { today: 58, baseline: 51, delta: 7, inverted: false },
+      bp:     { systolic: 120, diastolic: 80, date: '14 мая, 09:15' },
+      weight: { kg: 74.8, date: '14 мая', delta: -0.6 },
+    },
+  },
+  tasks: {
+    state: 'normal',
+    counters: { today: 5, overdue: 2, done: 3 },
+    todays: [
+      { id: 't1', text: 'Прочитать главу из Бхагаватам',                    done: false },
+      { id: 't2', text: 'Звонок с Иваном по проекту',                       done: false, time: '10:00' },
+      { id: 't3', text: 'Заказать билет в Дели на следующий месяц',         done: false },
+      { id: 't4', text: 'Подготовить материалы для лекции',                 done: false },
+      { id: 't5', text: 'Ответить Шьяме по поводу встречи в Москве',        done: false },
+    ],
+    overdue: [
+      { id: 'ov1', text: 'Дописать ответ Ивану',           since: 'с пятницы' },
+      { id: 'ov2', text: 'Перепрошить роутер на даче',     since: '3 дня назад' },
+    ],
+    streak: '7 дней подряд всё на сегодня',
+    doneToday: [],
+  },
+  calendar: {
+    state: 'next_event',
+    next: {
+      id: 'e1', time: '16:30', title: 'Звонок с Антоном про лекцию',
+      durationMin: 45, hasLink: true, isWork: true,
+      in: '1ч 20м', joinable: false, joinUrl: '#',
+    },
+    todayRest: [
+      { id: 'e0', time: '10:00', title: 'Звонок с Иваном',                durationMin: 45, hasLink: true,  isWork: true  },
+      { id: 'e2', time: '15:00', title: 'Онлайн-консультация',            durationMin: 60, hasLink: false, isWork: false },
+      { id: 'e1', time: '16:30', title: 'Звонок с Антоном про лекцию',    durationMin: 45, hasLink: true,  isWork: true  },
+      { id: 'e3', time: '19:00', title: 'Прогулка с Радхика-прия',        durationMin: 60, hasLink: false, isWork: false },
+    ],
+    tomorrow: [
+      { id: 'e4', time: '09:00', title: 'Утренняя лекция',                durationMin: 60, hasLink: true,  isWork: false },
+      { id: 'e5', time: '11:30', title: 'Звонок с командой',              durationMin: 30, hasLink: true,  isWork: true  },
+      { id: 'e6', time: '16:00', title: 'Доктор Хан',                     durationMin: 45, hasLink: false, isWork: false },
+    ],
+  },
+}
+
+/* SVG-иконки. */
+const ICONS = {
+  chevronRight: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>',
+  camera: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="6.5" width="13" height="11" rx="2"/><path d="M16 10.5l5-2.5v8l-5-2.5z"/></svg>',
+  cameraSm: '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="6.5" width="13" height="11" rx="2"/><path d="M16 10.5l5-2.5v8l-5-2.5z"/></svg>',
+  plus: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>',
+  sync: '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 01-15.5 6.3L3 16M3 12a9 9 0 0115.5-6.3L21 8"/></svg>',
+  checkMark: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5L20 7"/></svg>',
+  bigCheck: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5L20 7"/></svg>',
+}
+
+/* ────────────────────────────────────────────────────────────────
+ *  Состояние раскрытия (localStorage по карточке)
+ * ──────────────────────────────────────────────────────────────── */
+const EXPAND_KEYS = { japa: 'pj:home:exp:japa', health: 'pj:home:exp:health', tasks: 'pj:home:exp:tasks', cal: 'pj:home:exp:cal' }
+const expanded = {
+  japa:   localStorage.getItem(EXPAND_KEYS.japa)   === '1',
+  health: localStorage.getItem(EXPAND_KEYS.health) === '1',
+  tasks:  localStorage.getItem(EXPAND_KEYS.tasks)  === '1',
+  cal:    localStorage.getItem(EXPAND_KEYS.cal)    === '1',
+}
+function setExpanded(key, value) {
+  expanded[key] = value
+  localStorage.setItem(EXPAND_KEYS[key], value ? '1' : '0')
+}
+
+/* ────────────────────────────────────────────────────────────────
+ *  Шапка
+ *  TODO: брать локацию из user_profile.current_location_name +
+ *        current_tz; температуру — из weather edge function;
+ *        vaishnava — из vaishnava_calendar по сегодняшней дате.
+ *        Пока — дефолт Говардхан + дата из браузерного TZ.
+ * ──────────────────────────────────────────────────────────────── */
+function getHeaderData() {
+  const tz = 'Asia/Kolkata' // TODO: из user_profile.current_tz
+  const { weekday, day, month } = formatHeaderDate(tz)
+  if (PREVIEW) {
+    return { location: 'Говардхан', weekday, day, month, vaishnava: 'экадаши', temperature: 28 }
+  }
+  return {
+    location:    'Говардхан',
+    weekday, day, month,
+    vaishnava:   null,         // TODO: vaishnava_calendar lookup
+    temperature: null,         // TODO: weather edge function
+  }
+}
+
+function renderHeader(h) {
+  const tempHTML = h.temperature == null
+    ? ''
+    : `<span class="pm-temp num">${esc(fmt.temp(h.temperature))}</span>`
+  const vaishHTML = h.vaishnava
+    ? `<span class="pm-vaish-chip">
+         <svg width="12" height="12"><use href="${vaishnavaIcon(h.vaishnava)}"/></svg>
+         <span>${esc(h.vaishnava)}</span>
+       </span>`
+    : ''
+  document.getElementById('page-meta').innerHTML = `
+    <div class="page-meta page-meta--capsule">
+      <div class="pm-left">
+        <span class="pm-date">
+          <span class="pm-day num">${esc(h.day)}</span>
+          <span class="pm-month">${esc(h.month)}</span>
+        </span>
+        ${vaishHTML}
+      </div>
+      <img class="brand-mark" src="assets/panditji-logo.png" alt="Пандитджи"/>
+      <div class="pm-right">
+        <button class="pm-loc" type="button" id="loc-btn">${esc(h.location)}</button>
+        ${tempHTML}
+      </div>
+    </div>
+  `
+}
+
+/* ────────────────────────────────────────────────────────────────
+ *  Карточка 1 — Джапа
+ *  Источник: edge function get-japa-summary-widget
+ * ──────────────────────────────────────────────────────────────── */
+async function loadJapa() {
+  if (PREVIEW) return MOCK.japa
+  try {
+    const { data, error } = await db.functions.invoke('get-japa-summary-widget')
+    if (error) throw error
+    return normalizeJapa(data)
+  } catch (e) {
+    console.warn('japa load failed', e)
+    return { state: 'no_sessions', baselineSessionCount: 0 }
+  }
+}
+
+/* Привод данных из get-japa-summary-widget к форме карточки. */
+function normalizeJapa(raw) {
+  if (!raw || raw.state === 'no_sessions') return { state: 'no_sessions' }
+  return raw
+}
+
+function cardTitleHTML(label, href) {
+  return `
+    <div class="card-title">
+      <a class="card-title-btn" href="${esc(href)}" data-no-toggle="1">
+        <span class="card-title-text">${esc(label)}</span>
+        <span class="card-title-arrow">${ICONS.chevronRight}</span>
+      </a>
+    </div>`
+}
+
+function renderJapa(data) {
+  const root = document.getElementById('card-japa')
+  const exp = expanded.japa
+  root.setAttribute('data-collapsed', exp ? 'false' : 'true')
+
+  const { state, session, metrics, noCompareReason, streaks, milestone, lastSessions } = data || {}
+
+  let metaHTML = ''
+  if (state === 'fresh' && session) {
+    metaHTML = `
+      <span class="hc-head-meta hc-head-meta--stack">
+        <span class="hh-line1">${esc(session.date || 'сегодня')}</span>
+        <span class="hh-line2 num">${esc(fmt.durMin(session.durationMin))} · ${esc(session.circles)} кругов</span>
+      </span>`
+  } else if (state === 'stale' && session) {
+    metaHTML = `
+      <span class="hc-head-meta hc-head-meta--stack">
+        <span class="hh-line1">${esc(session.date)}</span>
+        <span class="hh-line2 num">${esc(fmt.durMin(session.durationMin))} · ${esc(session.circles)} кругов</span>
+      </span>`
+  } else {
+    metaHTML = `<span class="hc-head-meta">—</span>`
   }
 
-  const form = document.getElementById('login-form')
-  const sent = document.getElementById('sent')
-  const err  = document.getElementById('error')
-  const btn  = document.getElementById('submit-btn')
+  let bodyHTML = ''
+  if (state === 'no_sessions') {
+    bodyHTML = `<div class="sparse-note">Нет записей. Загрузи CSV в Telegram-бот, чтобы начать.</div>`
+  } else if (state === 'stale') {
+    bodyHTML = `
+      <div class="sparse-note">Нет свежих данных. Последняя сессия — ${esc(session?.date || '—')}.</div>
+      ${exp ? `<div class="hc-actions"><a class="act-btn act-btn--ghost" href="/meditation/sessions.html?id=${esc(session?.id || '')}">→ Открыть последний отчёт</a></div>` : ''}
+    `
+  } else if (state === 'fresh' && metrics) {
+    const m = metrics
+    bodyHTML = `
+      <div class="m-grid">
+        ${metricCellHTML({
+          label: 'Углубление',
+          today: `${fmt.num(m.deepening.today)}<span class="m-unit">%</span>`,
+          baseline: `ср.30д <span class="num">${fmt.num(m.deepening.baseline)}%</span>`,
+          deltaText: fmt.signed(m.deepening.deltaPct, { suffix: ' п.' }),
+          tone: deltaTone(m.deepening.deltaPct, m.deepening.baseline),
+        })}
+        ${metricCellHTML({
+          label: 'Стабильность',
+          today: fmt.num(m.stability.today, 1),
+          baseline: `ср.30д <span class="num">${fmt.num(m.stability.baseline, 1)}</span>`,
+          deltaText: fmt.signed(m.stability.deltaPct, { decimals: 1 }),
+          tone: deltaTone(m.stability.deltaPct, m.stability.baseline),
+        })}
+        ${metricCellHTML({
+          label: 'Calm',
+          today: fmt.ms(m.longestCalm.today),
+          baseline: `ср <span class="num">${fmt.ms(m.longestCalm.baseline)}</span>`,
+          deltaText: fmt.signedMS(m.longestCalm.deltaPct),
+          tone: deltaTone(m.longestCalm.deltaPct, m.longestCalm.baseline),
+        })}
+      </div>
+      ${streaksBlockHTML([streaks?.circles, streaks?.morning].filter(Boolean))}
+      ${milestone ? `<div class="milestone-line">${esc(milestone)}</div>` : ''}
+      ${exp && lastSessions?.length ? `
+        <div class="hc-divider"></div>
+        <div class="sessions-list">
+          <div class="sub-eyebrow">Последние сессии</div>
+          ${lastSessions.map(s => `
+            <a class="sess-row" href="/meditation/sessions.html?id=${esc(s.id)}">
+              <div class="sess-date">${esc(s.date)}</div>
+              <div class="sess-mid">
+                <span class="num">${esc(fmt.durMin(s.durationMin))}</span>
+                <span class="sep">·</span>
+                <span class="num">${esc(s.circles)} кругов</span>
+              </div>
+              <div class="sess-deep num">${esc(s.deepening)}%</div>
+            </a>`).join('')}
+        </div>` : ''}
+      ${exp ? `<div class="hc-actions hc-actions--end"><a class="act-btn act-btn--ghost" href="/meditation/trends.html">Подробный отчёт →</a></div>` : ''}
+    `
+  } else if (state === 'fresh' && !metrics && noCompareReason === 'no_baseline') {
+    bodyHTML = `
+      <div class="sparse-note">Сравнение появится после 5 сессий. Сейчас в базе: ${esc(data.baselineSessionCount || 0)}.</div>
+      ${exp ? `<div class="hc-actions hc-actions--end"><a class="act-btn act-btn--ghost" href="/meditation/trends.html">Подробный отчёт →</a></div>` : ''}
+    `
+  } else {
+    bodyHTML = `<div class="sparse-note">Нет данных.</div>`
+  }
 
-  form.addEventListener('submit', async (e) => {
-    e.preventDefault()
-    err.hidden = true
-    btn.disabled = true
-    btn.textContent = 'Отправляю…'
+  root.innerHTML = `
+    <header class="hc-head">
+      ${cardTitleHTML('Джапа', '/meditation/')}
+      ${metaHTML}
+    </header>
+    <div class="hc-body">${bodyHTML}</div>
+  `
+}
 
-    const email = document.getElementById('email').value.trim()
-    const { error } = await db.auth.signInWithOtp({
-      email,
-      options: { emailRedirectTo: `${window.location.origin}/morning.html` },
-    })
+function metricCellHTML({ label, today, baseline, deltaText, tone }) {
+  return `
+    <div class="m-cell">
+      <div class="m-label">${esc(label)}</div>
+      <div class="m-today num">${today}</div>
+      <div class="m-baseline">${baseline || '<span class="m-baseline-empty">—</span>'}</div>
+      <div class="m-delta">${deltaText
+        ? `<span class="delta delta--${esc(tone || 'neutral')}">${esc(deltaText)}</span>`
+        : '<span class="m-delta-empty">·</span>'}</div>
+    </div>`
+}
 
-    if (error) {
-      err.hidden = false
-      err.textContent = error.message
-      btn.disabled = false
-      btn.textContent = 'Отправить ссылку'
-      return
+function streaksBlockHTML(items) {
+  if (!items || !items.length) return ''
+  return `<div class="streaks">${items.map(s => `<div class="streak-line">${esc(s)}</div>`).join('')}</div>`
+}
+
+/* ────────────────────────────────────────────────────────────────
+ *  Карточка 2 — Здоровье (Whoop)
+ *  TODO: дёргать новую EF get-health-summary-widget (когда появится)
+ *        или собирать на клиенте из whoop_sleeps / whoop_recovery.
+ *        Пока — no_data state.
+ * ──────────────────────────────────────────────────────────────── */
+async function loadHealth() {
+  if (PREVIEW) return MOCK.health
+  return { state: 'no_data', syncedAt: null }
+}
+
+function renderHealth(data) {
+  const root = document.getElementById('card-health')
+  const exp = expanded.health
+  root.setAttribute('data-collapsed', exp ? 'false' : 'true')
+
+  const { state, syncedAt, metrics, streaks, extra, nightsCollected } = data || {}
+
+  let metaHTML = ''
+  if (state === 'fresh' || state === 'no_baseline') {
+    metaHTML = `<span class="hc-head-meta">${ICONS.sync} Whoop · ${esc(syncedAt || '')}</span>`
+  } else if (state === 'stale') {
+    metaHTML = `<span class="hc-head-meta">${ICONS.sync} ${esc(syncedAt || '')}</span>`
+  } else {
+    metaHTML = `<span class="hc-head-meta">Whoop не на связи</span>`
+  }
+
+  let bodyHTML = ''
+  if (state === 'no_data') {
+    bodyHTML = `
+      <div class="sparse-note">Нет свежих данных. Проверь синхронизацию Whoop.</div>
+      ${exp ? `<div class="hc-actions"><a class="act-btn act-btn--ghost" href="/morning.html">Открыть Whoop</a></div>` : ''}
+    `
+  } else if (state === 'stale') {
+    bodyHTML = `
+      <div class="sparse-note">Последняя синхронизация — ${esc(syncedAt)}.</div>
+      ${exp ? `<div class="hc-actions"><button class="act-btn act-btn--ghost" type="button">Обновить</button></div>` : ''}
+    `
+  } else if (metrics) {
+    const rec = metrics.recovery, sl = metrics.sleep, st = metrics.strain
+    const sleepP = sl.today ? (sl.today.h * 60 + sl.today.m) / (8.5 * 60) * 100 : 0
+    const sleepBP = sl.baseline ? (sl.baseline.h * 60 + sl.baseline.m) / (8.5 * 60) * 100 : null
+    bodyHTML = `
+      <div class="hr-grid">
+        ${healthRingHTML({
+          label: 'Восстановл.',
+          tone: 'sage',
+          pct: rec.today, basePct: rec.baseline,
+          valueHTML: `${fmt.num(rec.today)}<span class="hr-num-unit">%</span>`,
+          base: rec.baseline != null ? `ср ${fmt.num(rec.baseline)}%` : null,
+          delta: rec.delta != null ? { text: fmt.signed(rec.delta, { suffix: ' п.' }), tone: deltaTone(rec.delta, rec.baseline) } : null,
+        })}
+        ${healthRingHTML({
+          label: 'Сон',
+          tone: 'ink',
+          pct: sleepP, basePct: sleepBP,
+          valueHTML: fmt.hm(sl.today),
+          base: sl.baseline ? `ср ${fmt.hm(sl.baseline)}` : null,
+          delta: sl.deltaSec != null && sl.baseline
+            ? { text: fmt.signedMS(sl.deltaSec), tone: deltaTone(sl.deltaSec, (sl.baseline.h * 60 + sl.baseline.m) * 60) }
+            : null,
+        })}
+        ${healthRingHTML({
+          label: 'Strain',
+          tone: 'gold',
+          pct: st.today / 21 * 100, basePct: st.baseline != null ? st.baseline / 21 * 100 : null,
+          valueHTML: fmt.num(st.today, 1),
+          base: st.baseline != null ? `ср ${fmt.num(st.baseline, 1)}` : null,
+          delta: st.delta != null ? { text: fmt.signed(st.delta, { decimals: 1 }), tone: 'neutral' } : null,
+        })}
+      </div>
+      ${state === 'no_baseline' ? `<div class="sparse-note">Сравнение появится после 5 ночей. Сейчас в базе: ${esc(nightsCollected || 0)}.</div>` : ''}
+      ${streaksBlockHTML(streaks || [])}
+      ${exp && extra ? `
+        <div class="hc-divider"></div>
+        <div class="extra-grid">
+          ${extraRowHTML({
+            label: 'Пульс покоя',
+            today: `<span class="num">${extra.rhr.today}</span><span class="extra-unit">уд/мин</span>`,
+            base:  `ср.30д <span class="num">${extra.rhr.baseline}</span>`,
+            delta: { text: fmt.signed(extra.rhr.delta), tone: deltaTone(extra.rhr.delta, extra.rhr.baseline, { inverted: true }) },
+          })}
+          ${extraRowHTML({
+            label: 'HRV',
+            today: `<span class="num">${extra.hrv.today}</span><span class="extra-unit">мс</span>`,
+            base:  `ср.30д <span class="num">${extra.hrv.baseline}</span>`,
+            delta: { text: fmt.signed(extra.hrv.delta), tone: deltaTone(extra.hrv.delta, extra.hrv.baseline) },
+          })}
+          ${extra.bp ? extraRowHTML({
+            label: 'Давление',
+            today: `<span class="num">${extra.bp.systolic}/${extra.bp.diastolic}</span>`,
+            base:  `<span class="extra-meta">${esc(extra.bp.date)}</span>`,
+            delta: null,
+          }) : ''}
+          ${extra.weight ? extraRowHTML({
+            label: 'Вес',
+            today: `<span class="num">${fmt.num(extra.weight.kg, 1)}</span><span class="extra-unit">кг</span>`,
+            base:  `<span class="extra-meta">${esc(extra.weight.date)}</span>`,
+            delta: { text: fmt.signed(extra.weight.delta, { decimals: 1, suffix: ' кг' }), tone: 'neutral' },
+          }) : ''}
+        </div>` : ''}
+      ${exp ? `<div class="hc-actions hc-actions--end"><a class="act-btn act-btn--ghost" href="/morning.html">Все измерения →</a></div>` : ''}
+    `
+  }
+
+  root.innerHTML = `
+    <header class="hc-head">
+      ${cardTitleHTML('Здоровье', '/morning.html')}
+      ${metaHTML}
+    </header>
+    <div class="hc-body">${bodyHTML}</div>
+  `
+}
+
+function healthRingHTML({ label, tone, pct, basePct, valueHTML, base, delta }) {
+  const p = Math.max(0, Math.min(100, pct || 0))
+  const baselineRing = basePct != null
+    ? `<div class="hr-ring-baseline" style="--bp:${Math.max(0, Math.min(100, basePct))}" aria-hidden="true"></div>`
+    : ''
+  return `
+    <div class="hr-cell">
+      <div class="hr-row-top">
+        <div class="hr-ring-wrap">
+          <div class="hr-ring hr-ring--${esc(tone)}" style="--p:${p}" aria-hidden="true"></div>
+          ${baselineRing}
+        </div>
+        <div class="hr-num-big">${valueHTML}</div>
+      </div>
+      <div class="hr-label">${esc(label)}</div>
+      ${base ? `<div class="hr-base">${base}</div>` : ''}
+      ${delta ? `<div class="hr-delta"><span class="delta delta--${esc(delta.tone)}">${esc(delta.text)}</span></div>` : ''}
+    </div>`
+}
+
+function extraRowHTML({ label, today, base, delta }) {
+  return `
+    <div class="extra-row">
+      <div class="extra-label">${esc(label)}</div>
+      <div class="extra-today">${today}</div>
+      <div class="extra-base">${base}</div>
+      <div class="extra-delta">${delta
+        ? `<span class="delta delta--${esc(delta.tone)}">${esc(delta.text)}</span>`
+        : '<span class="m-delta-empty">·</span>'}</div>
+    </div>`
+}
+
+/* ────────────────────────────────────────────────────────────────
+ *  Карточка 3 — Задачи
+ *  Источник: таблица tasks (миграция 020).
+ * ──────────────────────────────────────────────────────────────── */
+function todayISO(tz) {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date())
+}
+
+async function loadTasks() {
+  if (PREVIEW) return MOCK.tasks
+  const tz = 'Asia/Kolkata' // TODO: user_profile.current_tz
+  const today = todayISO(tz)
+
+  const { data, error } = await db
+    .from('tasks')
+    .select('id, text, due_date, due_time, status, completed_at')
+    .order('due_date', { ascending: true })
+    .order('due_time', { ascending: true, nullsFirst: false })
+
+  if (error) throw error
+
+  const todays = [], overdue = [], doneToday = []
+  for (const t of data || []) {
+    const done = t.status === 'done'
+    const isToday = t.due_date === today
+    const isOverdue = !done && t.due_date && t.due_date < today
+
+    if (isOverdue) {
+      overdue.push({ id: t.id, text: t.text, since: sinceText(t.due_date, today) })
+      continue
     }
+    if (isToday) {
+      if (done) doneToday.push({ id: t.id, text: t.text })
+      else todays.push({ id: t.id, text: t.text, time: t.due_time?.slice(0, 5) || null, done: false })
+    }
+  }
 
-    form.hidden = true
-    sent.hidden = false
+  const counters = { today: todays.length + doneToday.length, overdue: overdue.length, done: doneToday.length }
+  let state = 'normal'
+  if (counters.today === 0 && overdue.length === 0) state = 'empty'
+  else if (todays.length === 0 && doneToday.length > 0 && overdue.length === 0) state = 'done'
+
+  return { state, counters, todays, overdue, doneToday, streak: null /* TODO */ }
+}
+
+function sinceText(dueISO, todayISO) {
+  const a = new Date(dueISO + 'T00:00:00'), b = new Date(todayISO + 'T00:00:00')
+  const days = Math.round((b - a) / 86400000)
+  if (days === 1) return 'вчера'
+  if (days < 7) return `${days} дня назад`
+  return `${days} дней назад`
+}
+
+function renderTasks(data) {
+  const root = document.getElementById('card-tasks')
+  const exp = expanded.tasks
+  root.setAttribute('data-collapsed', exp ? 'false' : 'true')
+
+  const { state, counters, todays, overdue, doneToday, streak } = data
+
+  let metaHTML = ''
+  if (counters) {
+    metaHTML = `
+      <span class="hc-head-meta hc-head-meta--counters">
+        <span>На сегодня&nbsp;<span class="num">${counters.today}</span></span>
+        ${counters.overdue > 0 ? `<span class="ov">Просрочено&nbsp;<span class="num">${counters.overdue}</span></span>` : ''}
+        <span>Сделано&nbsp;<span class="num">${counters.done}</span></span>
+      </span>`
+  }
+
+  let bodyHTML = ''
+  if (state === 'empty') {
+    bodyHTML = `
+      <div class="empty-block">
+        <div class="sparse-note">На сегодня задач нет.</div>
+        ${exp ? addInputHTML() : ''}
+      </div>`
+  } else if (state === 'done') {
+    bodyHTML = `
+      <div class="empty-block">
+        <div class="all-done-mark">${ICONS.bigCheck}</div>
+        <div class="sparse-note">Все задачи на сегодня сделаны.</div>
+        ${streak ? `<div class="streak-line">${esc(streak)}</div>` : ''}
+        ${doneToday?.length ? `
+          <div class="done-collapsed">
+            <span class="done-eyebrow">Сделано · <span class="num">${doneToday.length}</span></span>
+            <ul class="done-list">
+              ${doneToday.map(d => `<li class="done-item"><span class="check-mini"></span>${esc(d.text)}</li>`).join('')}
+            </ul>
+          </div>` : ''}
+      </div>`
+  } else {
+    const overdueHTML = exp && overdue?.length ? `
+      <div class="ov-group">
+        <div class="ov-eyebrow">Хвосты</div>
+        ${overdue.map(t => `
+          <div class="task-row task-row--tail">
+            <button class="hb-checkbox" type="button" role="checkbox" aria-checked="false" data-toggle-task="${esc(t.id)}" data-no-toggle="1"></button>
+            <div class="task-text">
+              <div>${esc(t.text)}</div>
+              <div class="task-since">${esc(t.since)}</div>
+            </div>
+          </div>`).join('')}
+      </div>` : ''
+
+    const shownTodays = exp ? todays : todays.slice(0, 3)
+    const moreCount = todays.length - 3
+    const todayHTML = `
+      <div class="today-group">
+        ${exp && overdue?.length ? `<div class="ov-eyebrow">Сегодня</div>` : ''}
+        ${shownTodays.map(t => `
+          <div class="task-row ${t.done ? 'is-done' : ''}">
+            <button class="hb-checkbox ${t.done ? 'is-checked' : ''}" type="button" role="checkbox"
+              aria-checked="${t.done}" data-toggle-task="${esc(t.id)}" data-no-toggle="1">
+              ${t.done ? ICONS.checkMark : ''}
+            </button>
+            <div class="task-text">
+              <div>${esc(t.text)}</div>
+              ${t.time ? `<div class="task-time num">в ${esc(t.time)}</div>` : ''}
+            </div>
+          </div>`).join('')}
+        ${!exp && moreCount > 0 ? `<button class="task-more-btn" type="button" data-no-toggle="1" id="tasks-more-btn">Ещё ${moreCount} →</button>` : ''}
+      </div>`
+
+    bodyHTML = `
+      ${overdueHTML}
+      ${todayHTML}
+      ${streak ? `<div class="streak-line">${esc(streak)}</div>` : ''}
+      ${exp ? addInputHTML() : ''}
+      ${exp ? `<div class="hc-actions hc-actions--end"><a class="act-btn act-btn--ghost" href="/tasks/">Все задачи →</a></div>` : ''}
+    `
+  }
+
+  root.innerHTML = `
+    <header class="hc-head">
+      ${cardTitleHTML('Задачи', '/tasks/')}
+      ${metaHTML}
+    </header>
+    <div class="hc-body">${bodyHTML}</div>
+  `
+}
+
+function addInputHTML() {
+  return `
+    <form class="add-input" data-no-toggle="1" id="task-add-form">
+      ${ICONS.plus}
+      <input type="text" id="task-add-input" placeholder="Добавить задачу на сегодня" autocomplete="off"/>
+      <span class="add-enter">⏎</span>
+    </form>`
+}
+
+/* Создать задачу на сегодня. */
+async function createTaskInline(text) {
+  if (PREVIEW) {
+    cache.tasks.todays.push({ id: 'p-' + Date.now(), text, done: false })
+    cache.tasks.counters.today++
+    return
+  }
+  const tz = 'Asia/Kolkata'
+  const due_date = todayISO(tz)
+  const { error } = await db.from('tasks').insert({
+    user_id: user.id,
+    text,
+    due_date,
+    source: 'web',
   })
+  if (error) throw error
+}
+
+/* Toggle done. status: open ↔ done, completed_at соответственно. */
+async function toggleTaskDone(id) {
+  if (PREVIEW) {
+    const t = cache.tasks.todays.find(x => x.id === id)
+    if (t) {
+      t.done = !t.done
+      cache.tasks.counters.done += t.done ? 1 : -1
+    }
+    return
+  }
+  const { data: row, error: e1 } = await db.from('tasks').select('status').eq('id', id).single()
+  if (e1) throw e1
+  const willBeDone = row.status !== 'done'
+  const { error: e2 } = await db.from('tasks').update({
+    status: willBeDone ? 'done' : 'open',
+    completed_at: willBeDone ? new Date().toISOString() : null,
+  }).eq('id', id)
+  if (e2) throw e2
+}
+
+/* ────────────────────────────────────────────────────────────────
+ *  Карточка 4 — Календарь
+ *  Источник: calendar_events (миграция 011)
+ * ──────────────────────────────────────────────────────────────── */
+async function loadCalendar() {
+  if (PREVIEW) return MOCK.calendar
+  const tz = 'Asia/Kolkata'
+  const todayStart = new Date()
+  const dayAfter = new Date(todayStart.getTime() + 48 * 3600 * 1000)
+
+  const { data, error } = await db
+    .from('calendar_events')
+    .select('id, title, description, start_at, end_at, google_calendar_id, is_all_day, deleted_at')
+    .is('deleted_at', null)
+    .gte('start_at', todayStart.toISOString())
+    .lt('start_at', dayAfter.toISOString())
+    .order('start_at', { ascending: true })
+
+  if (error) {
+    console.warn('calendar load failed', error)
+    return { state: 'empty_today', todayRest: [], tomorrow: [] }
+  }
+
+  const today = todayISO(tz)
+  const todayRest = [], tomorrow = []
+  const now = Date.now()
+  /* Регэксп выдёргивает meet/zoom-ссылку из описания события — отдельного поля нет. */
+  const MEET_RE = /(https?:\/\/(?:meet\.google\.com|[a-z0-9-]+\.zoom\.us|us\d+\.zoom\.us|teams\.live\.com|teams\.microsoft\.com)\/[^\s<>"']+)/i
+
+  for (const ev of data || []) {
+    if (ev.is_all_day) continue
+    const start = new Date(ev.start_at)
+    const end = ev.end_at ? new Date(ev.end_at) : new Date(start.getTime() + 30 * 60000)
+    const day = new Intl.DateTimeFormat('en-CA', { timeZone: tz }).format(start)
+    const time = new Intl.DateTimeFormat('ru-RU', { timeZone: tz, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(start)
+    const durMin = Math.max(1, Math.round((end - start) / 60000))
+    const linkMatch = ev.description ? ev.description.match(MEET_RE) : null
+    const hasLink = !!linkMatch
+    /* Workspace календарь Адриана — adrian.ru-домен. Эвристика, можно уточнить через category. */
+    const isWork = /adrian\.ru/i.test(ev.google_calendar_id || '')
+    const startMs = start.getTime()
+    const minutesUntil = (startMs - now) / 60000
+    const event = {
+      id: ev.id, time, title: ev.title || '(без названия)', durationMin: durMin,
+      hasLink, isWork, startMs, minutesUntil, joinUrl: linkMatch ? linkMatch[1] : null,
+    }
+    if (day === today) {
+      if (end.getTime() > now) todayRest.push(event)
+    } else {
+      tomorrow.push(event)
+    }
+  }
+
+  if (todayRest.length === 0 && tomorrow.length === 0) {
+    return { state: 'empty_today', todayRest, tomorrow }
+  }
+  if (todayRest.length === 0) {
+    return { state: 'no_more_today', todayRest, tomorrow }
+  }
+
+  const next = todayRest[0]
+  next.in = humanIn(next.minutesUntil)
+  next.joinable = next.hasLink && next.minutesUntil >= 0 && next.minutesUntil <= 10
+  return { state: 'next_event', next, todayRest, tomorrow }
+}
+
+function humanIn(minutes) {
+  if (minutes < 0) return `Сейчас`
+  if (minutes < 60) return `${Math.round(minutes)} мин`
+  const h = Math.floor(minutes / 60), m = Math.round(minutes - h * 60)
+  return m ? `${h}ч ${m}м` : `${h}ч`
+}
+
+function renderCalendar(data) {
+  const root = document.getElementById('card-cal')
+  const exp = expanded.cal
+  root.setAttribute('data-collapsed', exp ? 'false' : 'true')
+
+  const { state, next, todayRest, tomorrow } = data
+
+  let metaHTML = ''
+  if (state === 'next_event') metaHTML = `<span class="hc-head-meta">${todayRest.length} событий</span>`
+  else if (state === 'no_more_today') metaHTML = `<span class="hc-head-meta">${tomorrow.length} завтра</span>`
+  else metaHTML = `<span class="hc-head-meta">пусто</span>`
+
+  let bodyHTML = ''
+  if (state === 'empty_today') {
+    bodyHTML = `<div class="sparse-note">На сегодня пусто.</div>`
+  } else if (state === 'no_more_today') {
+    bodyHTML = `
+      <div class="sparse-note">Сегодня встреч больше нет.</div>
+      ${exp ? timelineHTML('Завтра', tomorrow, null) : ''}
+    `
+  } else if (state === 'next_event' && next) {
+    const joinHTML = next.joinable && next.joinUrl
+      ? `<div class="hc-actions"><a class="act-btn act-btn--primary" href="${esc(next.joinUrl)}" target="_blank" rel="noopener" data-no-toggle="1">${ICONS.cameraSm}<span>Присоединиться</span></a></div>`
+      : ''
+    bodyHTML = `
+      <div class="next-hero">
+        <div class="next-hero-meta">
+          <span class="next-hero-in">через ${esc(next.in)}</span>
+          <span class="next-hero-clock num">${esc(next.time)}</span>
+        </div>
+        <div class="next-hero-title">
+          ${esc(next.title)}
+          ${next.hasLink ? `<span class="ne-cam">${ICONS.camera}</span>` : ''}
+        </div>
+        <div class="next-hero-tail">
+          <span><span class="num">${next.durationMin}</span> мин</span>
+          ${next.isWork ? `<span class="src-chip">раб</span>` : ''}
+        </div>
+      </div>
+      ${joinHTML}
+      ${exp && todayRest.length > 1 ? `
+        <div class="hc-divider"></div>
+        ${timelineHTML('Осталось сегодня', todayRest, next.time)}` : ''}
+      ${exp && tomorrow.length ? timelineHTML('Завтра', tomorrow, null) : ''}
+      ${exp ? `<div class="hc-actions hc-actions--end"><a class="act-btn act-btn--ghost" href="/calendar.html">Открыть календарь →</a></div>` : ''}
+    `
+  }
+
+  root.innerHTML = `
+    <header class="hc-head">
+      ${cardTitleHTML('Календарь', '/calendar.html')}
+      ${metaHTML}
+    </header>
+    <div class="hc-body">${bodyHTML}</div>
+  `
+}
+
+function timelineHTML(title, events, highlightTime) {
+  return `
+    <div class="ev-group">
+      <div class="ev-eyebrow ev-eyebrow--italic">${esc(title)}</div>
+      <div class="ev-timeline">
+        ${events.map(e => `
+          <div class="ev-tl-row" data-work="${e.isWork ? 'true' : 'false'}" data-first="${highlightTime === e.time ? 'true' : 'false'}">
+            <div class="ev-tl-time">${esc(e.time)}</div>
+            <div class="ev-tl-mid">
+              <div class="ev-tl-title">${esc(e.title)}${e.hasLink ? `<span class="ev-cam">${ICONS.cameraSm}</span>` : ''}</div>
+              <div class="ev-tl-meta">
+                <span class="num">${e.durationMin} мин</span>
+                ${e.isWork ? `<span class="src-chip src-chip--sm">раб</span>` : ''}
+              </div>
+            </div>
+          </div>`).join('')}
+      </div>
+    </div>`
+}
+
+/* ────────────────────────────────────────────────────────────────
+ *  Раскрытие/сворачивание + перерисовка
+ * ──────────────────────────────────────────────────────────────── */
+const cache = { japa: null, health: null, tasks: null, cal: null }
+
+function rerender(key) {
+  if (key === 'japa')   renderJapa(cache.japa)
+  if (key === 'health') renderHealth(cache.health)
+  if (key === 'tasks')  renderTasks(cache.tasks)
+  if (key === 'cal')    renderCalendar(cache.cal)
+}
+
+const CARD_KEY = { 'card-japa': 'japa', 'card-health': 'health', 'card-tasks': 'tasks', 'card-cal': 'cal' }
+
+document.addEventListener('click', (e) => {
+  /* Игнор кликов по интерактивным элементам внутри карточки. */
+  if (e.target.closest('[data-no-toggle]')) return
+
+  const card = e.target.closest('.hc[data-collapsed]')
+  if (!card) return
+  /* Раскрываем по тапу только когда свёрнуто. Когда раскрыто — клики внутри ничего не делают. */
+  if (card.getAttribute('data-collapsed') !== 'true') return
+  const key = CARD_KEY[card.id]
+  if (!key) return
+  setExpanded(key, true)
+  rerender(key)
+})
+
+/* Клик по chevron-стрелке у названия (для свернуть, когда раскрыто) */
+document.addEventListener('click', (e) => {
+  const titleBtn = e.target.closest('.card-title-btn')
+  if (!titleBtn) return
+  const card = titleBtn.closest('.hc[data-collapsed]')
+  if (!card) return
+  // Если карточка свёрнута — даём ссылке открыться (на страницу раздела).
+  // Если раскрыта — превращаем в "свернуть".
+  if (card.getAttribute('data-collapsed') === 'false') {
+    e.preventDefault()
+    const key = CARD_KEY[card.id]
+    if (!key) return
+    setExpanded(key, false)
+    rerender(key)
+  }
+})
+
+/* ────────────────────────────────────────────────────────────────
+ *  Делегированные обработчики (чекбокс, форма add-task)
+ * ──────────────────────────────────────────────────────────────── */
+document.addEventListener('click', async (e) => {
+  const cb = e.target.closest('[data-toggle-task]')
+  if (!cb) return
+  const id = cb.getAttribute('data-toggle-task')
+  cb.disabled = true
+  try {
+    await toggleTaskDone(id)
+    if (!PREVIEW) cache.tasks = await loadTasks()
+    renderTasks(cache.tasks)
+  } catch (err) {
+    console.error(err)
+    cb.disabled = false
+  }
+})
+
+document.addEventListener('submit', async (e) => {
+  if (e.target.id !== 'task-add-form') return
+  e.preventDefault()
+  const input = document.getElementById('task-add-input')
+  const text = input.value.trim()
+  if (!text) return
+  input.disabled = true
+  try {
+    await createTaskInline(text)
+    input.value = ''
+    if (!PREVIEW) cache.tasks = await loadTasks()
+    renderTasks(cache.tasks)
+    /* Восстановим фокус — поле перерендерилось. */
+    document.getElementById('task-add-input')?.focus()
+  } catch (err) {
+    console.error(err)
+    input.disabled = false
+  }
+})
+
+/* "Ещё N →" — раскрыть карточку задач. */
+document.addEventListener('click', (e) => {
+  if (e.target.id !== 'tasks-more-btn') return
+  setExpanded('tasks', true)
+  renderTasks(cache.tasks)
+})
+
+/* ────────────────────────────────────────────────────────────────
+ *  Boot
+ * ──────────────────────────────────────────────────────────────── */
+renderHeader(getHeaderData())
+
+/* Скелетоны (минималистичные) */
+const SKELETON = `<div class="hc-skeleton"></div>`
+document.getElementById('card-japa').innerHTML   = SKELETON
+document.getElementById('card-health').innerHTML = SKELETON
+document.getElementById('card-tasks').innerHTML  = SKELETON
+document.getElementById('card-cal').innerHTML    = SKELETON
+
+Promise.allSettled([
+  loadJapa().then(d => { cache.japa = d; renderJapa(d) }),
+  loadHealth().then(d => { cache.health = d; renderHealth(d) }),
+  loadTasks().then(d => { cache.tasks = d; renderTasks(d) })
+    .catch(err => {
+      console.error('tasks load failed', err)
+      cache.tasks = { state: 'empty', counters: null, todays: [], overdue: [], doneToday: [] }
+      renderTasks(cache.tasks)
+    }),
+  loadCalendar().then(d => { cache.cal = d; renderCalendar(d) }),
+])
+
 </script>
 
 </body>

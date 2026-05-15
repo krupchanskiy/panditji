@@ -17,7 +17,7 @@ export const db = createClient(SUPABASE_URL, SUPABASE_KEY, {
 export async function requireAuth() {
   const { data: { session } } = await db.auth.getSession()
   if (!session) {
-    window.location.replace('/')
+    window.location.replace('/login.html')
     return null
   }
   return session.user
@@ -25,7 +25,7 @@ export async function requireAuth() {
 
 export async function logout() {
   await db.auth.signOut()
-  window.location.replace('/')
+  window.location.replace('/login.html')
 }
 
 /* Локальная дата пользователя (YYYY-MM-DD) в его часовой зоне.
