@@ -1094,7 +1094,14 @@ function streaksBlockHTML(items) {
  * ──────────────────────────────────────────────────────────────── */
 async function loadHealth() {
   if (PREVIEW) return MOCK.health
-  return { state: 'no_data', syncedAt: null }
+  try {
+    const { data, error } = await db.functions.invoke('get-health-summary-widget')
+    if (error) throw error
+    return data
+  } catch (e) {
+    console.warn('health load failed', e)
+    return { state: 'no_data', syncedAt: null }
+  }
 }
 
 function renderHealth(data) {
