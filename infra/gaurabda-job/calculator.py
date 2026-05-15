@@ -352,9 +352,12 @@ def calculate_panchanga(
         tithi_progress = float(ad.nTithiElapse or 0.0) / 100.0
         moon_age = round(tithi_in_paksha - 1 + tithi_progress, 1)
 
-        # Освещённость — геометрически точно через msDistance (элонгация 0..360°).
-        elongation_deg = float(ad.msDistance or 0.0) % 360.0
-        moon_illum = round((1.0 - math.cos(math.radians(elongation_deg))) / 2.0 * 100.0, 1)
+        # Освещённость — через msDistance.
+        # В gaurabda msDistance = (moon_long - sun_long - 180) mod 360, т.е.
+        # отсчитывается ОТ ПОЛНОЛУНИЯ: 0° = пурнима, 180° = амавасья.
+        # Поэтому формула освещённости — (1 + cos)/2, а не (1 - cos)/2.
+        ms_deg = float(ad.msDistance or 0.0) % 360.0
+        moon_illum = round((1.0 + math.cos(math.radians(ms_deg))) / 2.0 * 100.0, 1)
 
         rows.append({
             'date': d.isoformat(),
