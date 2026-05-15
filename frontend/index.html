@@ -895,20 +895,46 @@ function setExpanded(key, value) {
 }
 
 /* ────────────────────────────────────────────────────────────────
+ *  Профиль пользователя — локация и TZ
+ *  Читаем user_profile.current_location_id + embedded locations(name, timezone).
+ *  Кэшируем глобально, чтобы карточки могли использовать tz для todayISO/календаря.
+ *  TODO: автоопределение по GPS + якоря, переключатель локаций в шапке (бриф).
+ * ──────────────────────────────────────────────────────────────── */
+const PROFILE = { tz: 'Asia/Kolkata', locationName: 'Говардхан' }
+
+async function loadProfile() {
+  if (PREVIEW) return { tz: 'Asia/Kolkata', locationName: 'Говардхан' }
+  try {
+    const { data, error } = await db
+      .from('user_profile')
+      .select('location:current_location_id(name, timezone)')
+      .eq('id', user.id)
+      .maybeSingle()
+    if (error) throw error
+    const loc = data?.location
+    if (loc?.timezone && loc?.name) {
+      return { tz: loc.timezone, locationName: loc.name }
+    }
+  } catch (e) {
+    console.warn('profile load failed', e)
+  }
+  return { tz: 'Asia/Kolkata', locationName: 'Говардхан' }
+}
+
+/* ────────────────────────────────────────────────────────────────
  *  Шапка
- *  TODO: брать локацию из user_profile.current_location_name +
- *        current_tz; температуру — из weather edge function;
- *        vaishnava — из vaishnava_calendar по сегодняшней дате.
- *        Пока — дефолт Говардхан + дата из браузерного TZ.
+ *  TODO: температура — из weather edge function;
+ *        vaishnava — из vaishnava_calendar по сегодняшней дате;
+ *        тап по локации → переключатель якорей.
  * ──────────────────────────────────────────────────────────────── */
 function getHeaderData() {
-  const tz = 'Asia/Kolkata' // TODO: из user_profile.current_tz
+  const tz = PROFILE.tz
   const { weekday, day, month } = formatHeaderDate(tz)
   if (PREVIEW) {
     return { location: 'Говардхан', weekday, day, month, vaishnava: 'экадаши', temperature: 28 }
   }
   return {
-    location:    'Говардхан',
+    location:    PROFILE.locationName,
     weekday, day, month,
     vaishnava:   null,         // TODO: vaishnava_calendar lookup
     temperature: null,         // TODO: weather edge function
@@ -1262,7 +1288,7 @@ function todayISO(tz) {
 
 async function loadTasks() {
   if (PREVIEW) return MOCK.tasks
-  const tz = 'Asia/Kolkata' // TODO: user_profile.current_tz
+  const tz = PROFILE.tz
   const today = todayISO(tz)
 
   const { data, error } = await db
@@ -1410,7 +1436,7 @@ async function createTaskInline(text) {
     cache.tasks.counters.today++
     return
   }
-  const tz = 'Asia/Kolkata'
+  const tz = PROFILE.tz
   const due_date = todayISO(tz)
   const { error } = await db.from('tasks').insert({
     user_id: user.id,
@@ -1447,7 +1473,7 @@ async function toggleTaskDone(id) {
  * ──────────────────────────────────────────────────────────────── */
 async function loadCalendar() {
   if (PREVIEW) return MOCK.calendar
-  const tz = 'Asia/Kolkata'
+  const tz = PROFILE.tz
   const todayStart = new Date()
   const dayAfter = new Date(todayStart.getTime() + 48 * 3600 * 1000)
 
@@ -1691,6 +1717,13 @@ document.addEventListener('click', async (e) => {
 /* ────────────────────────────────────────────────────────────────
  *  Boot
  * ──────────────────────────────────────────────────────────────── */
+
+/* Профиль грузим первым делом — от него зависит tz всех остальных запросов
+ * и название локации в шапке. Это блокирующее, но запрос быстрый (~50ms). */
+const profile = await loadProfile()
+PROFILE.tz = profile.tz
+PROFILE.locationName = profile.locationName
+
 renderHeader(getHeaderData())
 
 /* Скелетоны (минималистичные) */
