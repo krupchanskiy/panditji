@@ -61,3 +61,7 @@ export function toggleSessionExclusion(sessionId, exclude) {
     body: { sessionId, exclude },
   })
 }
+
+export function getJapaSummaryWidget() {
+  return callEdge('get-japa-summary-widget', { method: 'GET' })
+}

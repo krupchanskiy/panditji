@@ -422,6 +422,12 @@
 
 <script type="module">
   import { db, requireAuth, localDate, formatHeaderDate } from './js/db.js'
+  import { mountJapaWidget, WIDGET_STYLES } from './js/meditation/widget.js'
+
+  /* Embed japa-widget styles once. */
+  const _japaStyle = document.createElement('style')
+  _japaStyle.textContent = WIDGET_STYLES
+  document.head.appendChild(_japaStyle)
 
   const user = await requireAuth()
   if (!user) throw new Error('redirected')
@@ -1002,10 +1008,13 @@
     root.innerHTML =
       renderHeader(STATE) +
       renderSleep(STATE) +
+      '<section class="px-5 mt-6" id="japa-widget-section"></section>' +
       renderEvents(STATE) +
       renderTodos(STATE) +
       renderTelegramLink(STATE) +
       '<div class="pb-10"></div>';
+    /* Mount the japa widget lazily — its own fetch shouldn't block initial paint. */
+    mountJapaWidget(document.getElementById('japa-widget-section'));
   }
 
   function updateCounter() {

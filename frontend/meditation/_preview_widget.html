@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Виджет — предпросмотр</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=EB+Garamond:ital,wght@0,400;0,500;1,400;1,500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: oklch(0.32 0.060 250); --ink-2: oklch(0.25 0.060 250);
+    --text: oklch(0.27 0.030 245); --text-2: oklch(0.50 0.022 240); --text-3: oklch(0.62 0.015 240);
+  }
+  html, body { min-height: 100vh; }
+  body {
+    font-family: 'Manrope', ui-sans-serif, sans-serif; color: var(--text);
+    background:
+      radial-gradient(80% 70% at 85% 5%, oklch(0.85 0.05 250 / 0.32) 0%, transparent 75%),
+      radial-gradient(75% 65% at 8% 28%, oklch(0.84 0.045 230 / 0.32) 0%, transparent 78%),
+      linear-gradient(180deg, oklch(0.965 0.010 235), oklch(0.94 0.016 235));
+    background-attachment: fixed;
+  }
+</style>
+</head>
+<body>
+  <main class="mx-auto max-w-[420px] px-4 py-6">
+    <h2 class="font-serif-m text-[16px] text-slate-700 mb-2" style="font-family:'EB Garamond',serif;">fresh + metrics</h2>
+    <div id="w-fresh"></div>
+
+    <h2 class="font-serif-m text-[16px] text-slate-700 mt-6 mb-2" style="font-family:'EB Garamond',serif;">fresh + no_baseline</h2>
+    <div id="w-nobase"></div>
+
+    <h2 class="font-serif-m text-[16px] text-slate-700 mt-6 mb-2" style="font-family:'EB Garamond',serif;">stale</h2>
+    <div id="w-stale"></div>
+
+    <h2 class="font-serif-m text-[16px] text-slate-700 mt-6 mb-2" style="font-family:'EB Garamond',serif;">pending_context</h2>
+    <div id="w-pending"></div>
+
+    <h2 class="font-serif-m text-[16px] text-slate-700 mt-6 mb-2" style="font-family:'EB Garamond',serif;">no_sessions</h2>
+    <div id="w-empty"></div>
+  </main>
+
+  <script type="module">
+    import { renderWidget, WIDGET_STYLES } from '/js/meditation/widget.js'
+    const styleEl = document.createElement('style'); styleEl.textContent = WIDGET_STYLES
+    document.head.appendChild(styleEl)
+
+    document.getElementById('w-fresh').innerHTML = renderWidget({
+      state: 'fresh',
+      session: { id: 'a', date: 'сегодня', durationMin: 60, circles: 16, ageHours: 2.5 },
+      metrics: {
+        deepening: { today: 63, baseline: 45, deltaPct: 40.4 },
+        stability: { today: 3.0, baseline: 2.7, deltaPct: 11.1 },
+        longestCalm: { today: 630, baseline: 440, deltaPct: 43.2, unit: 'sec' },
+      },
+      noCompareReason: null, baselineSessionCount: 18,
+    })
+
+    document.getElementById('w-nobase').innerHTML = renderWidget({
+      state: 'fresh',
+      session: { id: 'b', date: 'сегодня', durationMin: 30, circles: 8, ageHours: 1 },
+      metrics: null,
+      noCompareReason: 'no_baseline', baselineSessionCount: 3,
+    })
+
+    document.getElementById('w-stale').innerHTML = renderWidget({
+      state: 'stale',
+      session: { id: 'c', date: '14 мая', durationMin: 60, circles: 16, ageHours: 30 },
+      metrics: null, noCompareReason: null, baselineSessionCount: 0,
+    })
+
+    document.getElementById('w-pending').innerHTML = renderWidget({
+      state: 'pending_context',
+      session: { id: 'd', date: 'сегодня', durationMin: 60, circles: null, ageHours: 0.5 },
+      metrics: null, noCompareReason: null, baselineSessionCount: 0,
+    })
+
+    document.getElementById('w-empty').innerHTML = renderWidget({
+      state: 'no_sessions',
+      session: null, metrics: null, noCompareReason: null, baselineSessionCount: 0,
+    })
+  </script>
+</body>
+</html>
