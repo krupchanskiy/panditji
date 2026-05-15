@@ -188,6 +188,12 @@ Deno.serve(async (req) => {
     console.error('recompute trigger failed (non-fatal):', e)
   }
 
+  /* Trigger Whoop enrichment (ТЗ step 10). Fire-and-forget: enrichment is best-effort
+   * and the hourly sweep covers any failures here. */
+  triggerEnrich(body.session_id).catch(e =>
+    console.error('enrich trigger failed (non-fatal):', e),
+  )
+
   return json({
     session_id: body.session_id,
     pace_min_per_circle: result.paceMinPerCircle,
@@ -212,4 +218,16 @@ async function triggerRecompute(userId: string): Promise<void> {
     body: JSON.stringify({ user_id: userId }),
   })
   if (!resp.ok) throw new Error(`recompute returned ${resp.status}: ${await resp.text()}`)
+}
+
+async function triggerEnrich(sessionId: string): Promise<void> {
+  const url = Deno.env.get('SUPABASE_URL')!
+  const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+  if (!serviceKey) throw new Error('SUPABASE_SERVICE_ROLE_KEY missing for enrich trigger')
+  const resp = await fetch(`${url}/functions/v1/enrich-meditation-with-whoop`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${serviceKey}` },
+    body: JSON.stringify({ session_id: sessionId }),
+  })
+  if (!resp.ok) throw new Error(`enrich returned ${resp.status}: ${await resp.text()}`)
 }
