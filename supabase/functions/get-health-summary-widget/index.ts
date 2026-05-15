@@ -36,8 +36,7 @@ function json(body: unknown, status = 200): Response {
 
 const BASELINE_MIN_NIGHTS = 5
 const BASELINE_DAYS = 30
-const STALE_SYNC_HOURS = 12
-const NODATA_HOURS = 48
+const STALE_SLEEP_HOURS = 36   /* Если последний сон закончился >36ч назад — данных «нет» (>1 пропущенной ночи). */
 const STREAK_MIN_DAYS = 3
 const SLEEP_GOOD_HOURS = 7
 const RECOVERY_GOOD_SCORE = 70
@@ -93,61 +92,61 @@ Deno.serve(async (req) => {
   const sleeps = sleepRes.data ?? []
   const workouts = workoutRes.data ?? []
 
-  /* «Сегодня» по recovery — recovery_score за дату == today. */
-  const todayRec = recoveries.find(r => r.date === today)
-  /* «Сегодня» по сну — сон, чей end_at принадлежит today в локальной TZ
-   *   (то есть человек спал ночью и встал сегодня утром). */
-  const todaySleep = sleeps.find(s => localDate(new Date(s.end_at), tz) === today)
+  /* «Текущие» данные — самые свежие записи, безотносительно календарной даты.
+   * Это покрывает кейс «01:15 ночи нового дня — за сегодня данных ещё нет,
+   * но вчерашние числа уже хороший срез последнего сна». */
+  const latestRec   = recoveries[0]
+  const latestSleep = sleeps[0]
 
-  /* Latest sync — наибольший created_at среди всех потоков (когда наш fetcher
-   * последний раз что-то записал). */
+  /* Latest sync — наибольший created_at среди всех потоков. */
   const latestSyncTs = maxTs([
     ...recoveries.map(r => r.created_at),
     ...sleeps.map(s => s.created_at),
   ])
   const syncedAt = latestSyncTs ? formatSyncedAt(new Date(latestSyncTs), tz) : null
-  const hoursSinceSync = latestSyncTs
-    ? (Date.now() - Date.parse(latestSyncTs)) / 3600_000
-    : Infinity
 
-  /* No data: нет ни сна, ни recovery за последние 48 часов. */
-  if (!todayRec && !todaySleep && hoursSinceSync > NODATA_HOURS) {
+  /* No data: вообще нет записей. */
+  if (!latestRec && !latestSleep) {
     return json(empty('no_data', null))
   }
 
-  /* Stale: ни сегодня, ни вчера recovery нет; есть только старые данные. */
-  if (!todayRec && !todaySleep) {
+  /* Stale: последний сон закончился >36ч назад (пропустили ≥ ночь). */
+  const latestSleepAgeH = latestSleep
+    ? (Date.now() - Date.parse(latestSleep.end_at)) / 3600_000
+    : Infinity
+  if (latestSleepAgeH > STALE_SLEEP_HOURS) {
     return json(empty('stale', syncedAt))
   }
 
-  /* Считаем baseline (29 дней до today). */
-  const baselineRec = recoveries.filter(r => r.date !== today && r.date >= isoSubDays(today, BASELINE_DAYS))
-  const baselineSleep = sleeps.filter(s => localDate(new Date(s.end_at), tz) !== today)
+  /* Baseline — все записи КРОМЕ «текущей». */
+  const baselineRec = recoveries.filter(r => latestRec ? r !== latestRec : true)
+  const baselineSleep = sleeps.filter(s => latestSleep ? s !== latestSleep : true)
   const nightsCollected = baselineSleep.length
 
-  /* Strain — суммируем workouts по дням локальной TZ. */
+  /* Strain — суммируем workouts по дням локальной TZ; «сегодняшний» = за дату последнего сна. */
   const strainByDay = new Map<string, number>()
   for (const w of workouts) {
     const d = localDate(new Date(w.start_at), tz)
     strainByDay.set(d, (strainByDay.get(d) || 0) + Number(w.strain || 0))
   }
-  const todayStrain = strainByDay.get(today) ?? 0
+  const currentDay = latestSleep ? localDate(new Date(latestSleep.end_at), tz) : today
+  const todayStrain = strainByDay.get(currentDay) ?? 0
   const baselineStrainValues = Array.from(strainByDay.entries())
-    .filter(([d]) => d !== today)
+    .filter(([d]) => d !== currentDay)
     .map(([, v]) => v)
 
   const baselineReady = nightsCollected >= BASELINE_MIN_NIGHTS
 
-  /* HRV / RHR — берём из today recovery (или today sleep), baseline 30д из recovery. */
-  const hrvToday = todayRec?.hrv_rmssd_ms ?? todaySleep?.hrv_rmssd_ms ?? null
-  const rhrToday = todayRec?.resting_heart_rate ?? todaySleep?.resting_heart_rate ?? null
+  /* HRV / RHR — из последнего recovery (или fallback на последний сон). */
+  const hrvToday = latestRec?.hrv_rmssd_ms ?? latestSleep?.hrv_rmssd_ms ?? null
+  const rhrToday = latestRec?.resting_heart_rate ?? latestSleep?.resting_heart_rate ?? null
 
   /* Recovery */
-  const recoveryToday = todayRec?.recovery_score ?? null
+  const recoveryToday = latestRec?.recovery_score ?? null
   const recoveryBaseline = baselineReady ? avg(baselineRec.map(r => r.recovery_score)) : null
 
   /* Sleep — duration_seconds. */
-  const sleepTodaySec = todaySleep?.duration_seconds ?? null
+  const sleepTodaySec = latestSleep?.duration_seconds ?? null
   const sleepBaselineSec = baselineReady ? avg(baselineSleep.map(s => s.duration_seconds)) : null
 
   /* HRV / RHR baseline. */
@@ -156,12 +155,12 @@ Deno.serve(async (req) => {
   const strainBaseline = baselineReady && baselineStrainValues.length >= 5
     ? avg(baselineStrainValues) : null
 
-  /* Стрики — пробегаем назад от today, считаем подряд. */
-  const sleepStreak = streakBack(today, BASELINE_DAYS, (d) => {
+  /* Стрики — пробегаем назад от даты последнего сна, считаем подряд. */
+  const sleepStreak = streakBack(currentDay, BASELINE_DAYS, (d) => {
     const s = sleeps.find(s => localDate(new Date(s.end_at), tz) === d)
     return s ? s.duration_seconds >= SLEEP_GOOD_HOURS * 3600 : false
   })
-  const recoveryStreak = streakBack(today, BASELINE_DAYS, (d) => {
+  const recoveryStreak = streakBack(currentDay, BASELINE_DAYS, (d) => {
     const r = recoveries.find(r => r.date === d)
     return r ? r.recovery_score >= RECOVERY_GOOD_SCORE : false
   })
