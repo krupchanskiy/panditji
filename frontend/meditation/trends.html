@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Статистика — Пандитджи</title>
+<link rel="icon" type="image/png" sizes="32x32" href="/assets/icons/pand32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/assets/icons/pand16.png">
+<link rel="apple-touch-icon" href="/assets/icons/pand192.png">
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#1f2024">
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=EB+Garamond:ital,wght@0,400;0,500;1,400;1,500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:        oklch(0.965 0.010 235);
+    --ink:       oklch(0.32 0.060 250);
+    --ink-2:     oklch(0.25 0.060 250);
+    --ink-soft:  oklch(0.44 0.055 250);
+    --text:      oklch(0.27 0.030 245);
+    --text-2:    oklch(0.50 0.022 240);
+    --text-3:    oklch(0.62 0.015 240);
+    --sage-deep: oklch(0.52 0.085 235);
+    --terra-deep:oklch(0.60 0.115 25);
+    --gold-deep: oklch(0.50 0.10 70);
+  }
+  html, body { min-height: 100vh; }
+  body {
+    font-family: 'Manrope', ui-sans-serif, sans-serif;
+    color: var(--text);
+    -webkit-font-smoothing: antialiased;
+    background:
+      radial-gradient(80% 70% at 85% 5%,  oklch(0.85 0.05 250 / 0.32) 0%, transparent 75%),
+      radial-gradient(75% 65% at 8% 28%,  oklch(0.84 0.045 230 / 0.32) 0%, transparent 78%),
+      radial-gradient(85% 60% at 95% 80%, oklch(0.86 0.04 290 / 0.22) 0%, transparent 75%),
+      linear-gradient(180deg, oklch(0.965 0.010 235), oklch(0.94 0.016 235));
+    background-attachment: fixed;
+  }
+  .font-serif-m { font-family: 'EB Garamond', Georgia, serif; }
+  .num { font-feature-settings: "tnum" 1; font-variant-numeric: tabular-nums; }
+  .tracking-eyebrow { letter-spacing: 0.12em; }
+  .c-ink { color: var(--ink); } .c-ink-2 { color: var(--ink-2); }
+  .c-text { color: var(--text); } .c-text-2 { color: var(--text-2); } .c-text-3 { color: var(--text-3); }
+</style>
+</head>
+<body>
+  <main class="mx-auto max-w-[420px] px-4 py-4" id="root">
+    <div class="text-[13px] c-text-3 py-12 text-center">Загружаю статистику…</div>
+  </main>
+
+  <script type="module">
+    import { requireAuth } from '/js/db.js'
+    import { bootstrapTrends, TRENDS_STYLES } from '/js/meditation/render-trends.js'
+
+    const styleEl = document.createElement('style')
+    styleEl.textContent = TRENDS_STYLES
+    document.head.appendChild(styleEl)
+
+    const user = await requireAuth()
+    if (user) {
+      const root = document.getElementById('root')
+      try {
+        await bootstrapTrends(root)
+      } catch (err) {
+        console.error(err)
+        root.innerHTML = `<div class="text-[13px] c-text-2 py-12 text-center">
+          Не удалось загрузить статистику: ${(err && err.message) ? err.message : 'ошибка'}.
+        </div>`
+      }
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Статистика — предпросмотр</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=EB+Garamond:ital,wght@0,400;0,500;1,400;1,500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: oklch(0.965 0.010 235); --ink: oklch(0.32 0.060 250); --ink-2: oklch(0.25 0.060 250);
+    --ink-soft: oklch(0.44 0.055 250); --text: oklch(0.27 0.030 245);
+    --text-2: oklch(0.50 0.022 240); --text-3: oklch(0.62 0.015 240);
+    --sage-deep: oklch(0.52 0.085 235); --terra-deep: oklch(0.60 0.115 25); --gold-deep: oklch(0.50 0.10 70);
+  }
+  html, body { min-height: 100vh; }
+  body {
+    font-family: 'Manrope', ui-sans-serif, sans-serif; color: var(--text); -webkit-font-smoothing: antialiased;
+    background:
+      radial-gradient(80% 70% at 85% 5%,  oklch(0.85 0.05 250 / 0.32) 0%, transparent 75%),
+      radial-gradient(75% 65% at 8% 28%,  oklch(0.84 0.045 230 / 0.32) 0%, transparent 78%),
+      radial-gradient(85% 60% at 95% 80%, oklch(0.86 0.04 290 / 0.22) 0%, transparent 75%),
+      linear-gradient(180deg, oklch(0.965 0.010 235), oklch(0.94 0.016 235));
+    background-attachment: fixed;
+  }
+  .font-serif-m { font-family: 'EB Garamond', Georgia, serif; }
+  .num { font-feature-settings: "tnum" 1; font-variant-numeric: tabular-nums; }
+  .tracking-eyebrow { letter-spacing: 0.12em; }
+  .c-ink { color: var(--ink); } .c-ink-2 { color: var(--ink-2); }
+  .c-text { color: var(--text); } .c-text-2 { color: var(--text-2); } .c-text-3 { color: var(--text-3); }
+</style>
+</head>
+<body>
+  <main class="mx-auto max-w-[420px] px-4 py-4" id="root"></main>
+
+  <script type="module">
+    import { renderTrends, TRENDS_STYLES } from '/js/meditation/render-trends.js'
+
+    const styleEl = document.createElement('style')
+    styleEl.textContent = TRENDS_STYLES
+    document.head.appendChild(styleEl)
+
+    /* Synthetic 30-day session list. */
+    const sessions = Array.from({ length: 22 }, (_, i) => {
+      const day = String(i + 1).padStart(2, '0')
+      return {
+        idx: i, id: 's' + i, date: `${day}.05`, day: i + 1, month: 5, isToday: i === 21,
+        deepening: 30 + Math.sin(i / 3) * 25 + i * 0.5,
+        ab: 2.4 + Math.sin(i / 2) * 0.4 + i * 0.02,
+        sleep: 6 + Math.cos(i / 4) * 1.2,
+        recovery: 60 + Math.sin(i / 5) * 18,
+        distracted: ['никто','немного','сильно'][i % 3],
+        rating: ((i % 5) + 1),
+        location: 'Москва, дома',
+        durationMin: 60 + (i % 5) * 2,
+        circles: 16,
+        longestCalmSec: 480 + (i % 7) * 30,
+        durationCategory: 'standard',
+      }
+    })
+
+    const sma = sessions.map((s, i) => i < 2 ? null : (
+      sessions.slice(Math.max(0,i-6), i+1).reduce((a, x) => a + x.deepening, 0) /
+      Math.min(7, i+1)
+    ))
+    const smaAb = sessions.map((s, i) => i < 2 ? null : (
+      sessions.slice(Math.max(0,i-6), i+1).reduce((a, x) => a + x.ab, 0) /
+      Math.min(7, i+1)
+    ))
+
+    const mock = {
+      period: 30, calmOnly: true,
+      total: 22, totalMinutes: 22*60+5, avgDuration: 60.2, avgPerCircle: 3.8, goodSignalPercent: 97,
+      sessions, sma7Deepening: sma, sma7Ab: smaAb,
+      avgCalmNormalized: null, avgAllNormalized: null,
+      correlations: {
+        sleepVsDeepening: { n: 22, r: 0.47, pValue: null, significant: true,
+          interpretation: 'умеренная положительная связь (r=0.47, n=22)' },
+        recoveryVsStability: { n: 22, r: 0.21, pValue: null, significant: false,
+          interpretation: 'слабая положительная связь (r=0.21, n=22)' },
+        distractedVsDeepening: {
+          groups: [
+            { label: 'никто',   n: 8, median: 52, q1: 40, q3: 60, min: 25, max: 75 },
+            { label: 'немного', n: 9, median: 38, q1: 28, q3: 48, min: 12, max: 62 },
+            { label: 'сильно',  n: 5, median: 22, q1: 12, q3: 32, min: 5,  max: 45 },
+          ],
+          interpretation: 'когда не отвлекают, углубление заметно глубже (медианы 52 vs 22)',
+        },
+        selfRatingVsAb: { n: 22, r: 0.32, pValue: null, significant: true,
+          interpretation: 'слабая положительная связь (r=0.32, n=22) — собственное ощущение в целом совпадает с объективными данными' },
+      },
+    }
+    renderTrends(document.getElementById('root'), mock)
+  </script>
+</body>
+</html>
