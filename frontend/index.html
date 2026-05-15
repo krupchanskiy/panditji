@@ -900,7 +900,7 @@ function setExpanded(key, value) {
  *  Кэшируем глобально, чтобы карточки могли использовать tz для todayISO/календаря.
  *  TODO: автоопределение по GPS + якоря, переключатель локаций в шапке (бриф).
  * ──────────────────────────────────────────────────────────────── */
-const PROFILE = { tz: 'Asia/Kolkata', locationName: 'Говардхан' }
+const PROFILE = { tz: 'Asia/Kolkata', locationName: 'Говардхан', temperature: null }
 
 async function loadProfile() {
   if (PREVIEW) return { tz: 'Asia/Kolkata', locationName: 'Говардхан' }
@@ -923,8 +923,7 @@ async function loadProfile() {
 
 /* ────────────────────────────────────────────────────────────────
  *  Шапка
- *  TODO: температура — из weather edge function;
- *        vaishnava — из vaishnava_calendar по сегодняшней дате;
+ *  TODO: vaishnava — из vaishnava_calendar по сегодняшней дате;
  *        тап по локации → переключатель якорей.
  * ──────────────────────────────────────────────────────────────── */
 function getHeaderData() {
@@ -937,8 +936,22 @@ function getHeaderData() {
     location:    PROFILE.locationName,
     weekday, day, month,
     vaishnava:   null,         // TODO: vaishnava_calendar lookup
-    temperature: null,         // TODO: weather edge function
+    temperature: PROFILE.temperature,
   }
+}
+
+/* Текущая температура — edge function `weather` берёт current_location_id из
+ * user_profile и тянет Open-Meteo с 30-минутным кэшом. */
+async function loadWeather() {
+  if (PREVIEW) return null
+  try {
+    const { data, error } = await db.functions.invoke('weather')
+    if (error) throw error
+    if (typeof data?.temperature_c === 'number') return Math.round(data.temperature_c)
+  } catch (e) {
+    console.warn('weather load failed', e)
+  }
+  return null
 }
 
 function renderHeader(h) {
@@ -1725,6 +1738,13 @@ PROFILE.tz = profile.tz
 PROFILE.locationName = profile.locationName
 
 renderHeader(getHeaderData())
+
+/* Температура — фоном, без блокировки. Re-render шапки когда придёт. */
+loadWeather().then(t => {
+  if (t == null) return
+  PROFILE.temperature = t
+  renderHeader(getHeaderData())
+})
 
 /* Скелетоны (минималистичные) */
 const SKELETON = `<div class="hc-skeleton"></div>`
