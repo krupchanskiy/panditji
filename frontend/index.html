@@ -948,20 +948,12 @@ function renderHeader(h) {
  * ──────────────────────────────────────────────────────────────── */
 async function loadJapa() {
   if (PREVIEW) return MOCK.japa
-  try {
-    const { data, error } = await db.functions.invoke('get-japa-summary-widget')
-    if (error) throw error
-    return normalizeJapa(data)
-  } catch (e) {
-    console.warn('japa load failed', e)
-    return { state: 'no_sessions', baselineSessionCount: 0 }
+  const { data, error } = await db.functions.invoke('get-japa-summary-widget')
+  if (error) {
+    console.warn('japa load failed', error)
+    return { state: 'error' }
   }
-}
-
-/* Привод данных из get-japa-summary-widget к форме карточки. */
-function normalizeJapa(raw) {
-  if (!raw || raw.state === 'no_sessions') return { state: 'no_sessions' }
-  return raw
+  return data || { state: 'no_sessions' }
 }
 
 function cardTitleHTML(label, href) {
@@ -999,8 +991,19 @@ function renderJapa(data) {
   }
 
   let bodyHTML = ''
-  if (state === 'no_sessions') {
+  if (state === 'error') {
+    bodyHTML = `
+      <div class="hc-error">
+        <span class="hc-error-msg">Не удалось загрузить</span>
+        <button class="act-btn act-btn--ghost" type="button" data-no-toggle="1" id="japa-retry">Повторить</button>
+      </div>`
+  } else if (state === 'no_sessions') {
     bodyHTML = `<div class="sparse-note">Нет записей. Загрузи CSV в Telegram-бот, чтобы начать.</div>`
+  } else if (state === 'pending_context') {
+    bodyHTML = `
+      <div class="sparse-note">Сессия загружена. Подтверди круги в Telegram-боте, чтобы появились метрики.</div>
+      ${exp && session?.id ? `<div class="hc-actions"><a class="act-btn act-btn--ghost" href="/meditation/sessions.html?id=${esc(session.id)}">→ Открыть сессию</a></div>` : ''}
+    `
   } else if (state === 'stale') {
     bodyHTML = `
       <div class="sparse-note">Нет свежих данных. Последняя сессия — ${esc(session?.date || '—')}.</div>
@@ -1008,30 +1011,36 @@ function renderJapa(data) {
     `
   } else if (state === 'fresh' && metrics) {
     const m = metrics
+    const reasonText = noCompareReason
+      ? (noCompareReason === 'no_baseline'
+          ? `Сравнение появится после 5 сессий. Сейчас в базе: ${data.baselineSessionCount || 0}.`
+          : 'Сессия не входит в статистику — сравнение отключено.')
+      : null
     bodyHTML = `
       <div class="m-grid">
         ${metricCellHTML({
           label: 'Углубление',
-          today: `${fmt.num(m.deepening.today)}<span class="m-unit">%</span>`,
-          baseline: `ср.30д <span class="num">${fmt.num(m.deepening.baseline)}%</span>`,
-          deltaText: fmt.signed(m.deepening.deltaPct, { suffix: ' п.' }),
+          today: m.deepening.today != null ? `${fmt.num(m.deepening.today)}<span class="m-unit">%</span>` : '—',
+          baseline: m.deepening.baseline != null ? `ср.30д <span class="num">${fmt.num(m.deepening.baseline)}%</span>` : null,
+          deltaText: m.deepening.deltaPct != null ? fmt.signed(m.deepening.deltaPct, { suffix: ' п.' }) : null,
           tone: deltaTone(m.deepening.deltaPct, m.deepening.baseline),
         })}
         ${metricCellHTML({
           label: 'Стабильность',
-          today: fmt.num(m.stability.today, 1),
-          baseline: `ср.30д <span class="num">${fmt.num(m.stability.baseline, 1)}</span>`,
-          deltaText: fmt.signed(m.stability.deltaPct, { decimals: 1 }),
+          today: m.stability.today != null ? fmt.num(m.stability.today, 1) : '—',
+          baseline: m.stability.baseline != null ? `ср.30д <span class="num">${fmt.num(m.stability.baseline, 1)}</span>` : null,
+          deltaText: m.stability.deltaPct != null ? fmt.signed(m.stability.deltaPct, { decimals: 1 }) : null,
           tone: deltaTone(m.stability.deltaPct, m.stability.baseline),
         })}
         ${metricCellHTML({
           label: 'Calm',
-          today: fmt.ms(m.longestCalm.today),
-          baseline: `ср <span class="num">${fmt.ms(m.longestCalm.baseline)}</span>`,
-          deltaText: fmt.signedMS(m.longestCalm.deltaPct),
+          today: m.longestCalm.today != null ? fmt.ms(m.longestCalm.today) : '—',
+          baseline: m.longestCalm.baseline != null ? `ср <span class="num">${fmt.ms(m.longestCalm.baseline)}</span>` : null,
+          deltaText: m.longestCalm.deltaPct != null ? fmt.signedMS(m.longestCalm.deltaPct) : null,
           tone: deltaTone(m.longestCalm.deltaPct, m.longestCalm.baseline),
         })}
       </div>
+      ${reasonText ? `<div class="sparse-note">${esc(reasonText)}</div>` : ''}
       ${streaksBlockHTML([streaks?.circles, streaks?.morning].filter(Boolean))}
       ${milestone ? `<div class="milestone-line">${esc(milestone)}</div>` : ''}
       ${exp && lastSessions?.length ? `
@@ -1049,11 +1058,6 @@ function renderJapa(data) {
               <div class="sess-deep num">${esc(s.deepening)}%</div>
             </a>`).join('')}
         </div>` : ''}
-      ${exp ? `<div class="hc-actions hc-actions--end"><a class="act-btn act-btn--ghost" href="/meditation/trends.html">Подробный отчёт →</a></div>` : ''}
-    `
-  } else if (state === 'fresh' && !metrics && noCompareReason === 'no_baseline') {
-    bodyHTML = `
-      <div class="sparse-note">Сравнение появится после 5 сессий. Сейчас в базе: ${esc(data.baselineSessionCount || 0)}.</div>
       ${exp ? `<div class="hc-actions hc-actions--end"><a class="act-btn act-btn--ghost" href="/meditation/trends.html">Подробный отчёт →</a></div>` : ''}
     `
   } else {
@@ -1666,6 +1670,13 @@ document.addEventListener('click', (e) => {
   if (e.target.id !== 'tasks-more-btn') return
   setExpanded('tasks', true)
   renderTasks(cache.tasks)
+})
+
+/* Повтор загрузки джапы из error state. */
+document.addEventListener('click', async (e) => {
+  if (e.target.id !== 'japa-retry') return
+  cache.japa = await loadJapa()
+  renderJapa(cache.japa)
 })
 
 /* ────────────────────────────────────────────────────────────────

@@ -48,7 +48,9 @@ Deno.serve(async (req) => {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return json({ error: 'unauthorized' }, 401)
 
-  /* Latest session — could have circles=null (pending) or circles confirmed. */
+  /* Latest session — could have circles=null (pending) or circles confirmed.
+   * Tiebreaker по created_at DESC нужен, потому что при «дозаполнении» в боте
+   * может появиться вторая запись с тем же started_at. Берём ту, что записана позже. */
   const { data: latest, error: lErr } = await supabase
     .from('meditation_sessions')
     .select(`
@@ -58,6 +60,7 @@ Deno.serve(async (req) => {
     `)
     .eq('user_id', user.id)
     .order('started_at', { ascending: false })
+    .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle()
   if (lErr) return json({ error: 'db_error', message: lErr.message }, 500)
@@ -139,10 +142,18 @@ Deno.serve(async (req) => {
   }
 
   if (noCompareReason !== null) {
+    /* Показываем сегодняшние значения без сравнения — baseline и delta = null. */
+    const todayDeep = latest.deepening_reliable ? latest.deepening_pct : null
+    const todayStab = latest.ab_index_median
+    const todayCalm = latest.longest_calm_sec ?? 0
     return json({
       state: 'fresh',
       session: sessionPayload,
-      metrics: null,
+      metrics: {
+        deepening:   makeMetric(todayDeep, null),
+        stability:   makeMetric(todayStab, null),
+        longestCalm: makeMetric(todayCalm, null, 'sec'),
+      },
       noCompareReason,
       baselineSessionCount: baseline?.session_count ?? 0,
     })
