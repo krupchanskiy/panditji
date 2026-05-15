@@ -160,13 +160,6 @@
     box-shadow: 0 0 6px var(--terra);
   }
 
-  /* ---------------- Accent line ---------------- */
-  .accent-line {
-    height: 1px;
-    background: linear-gradient(90deg, transparent, color-mix(in oklch, var(--terra) 70%, transparent), transparent);
-  }
-  .eyebrow-bar { background: var(--terra); }
-
   /* ---------------- Ring meter ---------------- */
   .ring {
     --p: 0;
@@ -447,8 +440,8 @@
   const tz    = location.timezone
   const today = localDate(tz)
 
-  /* Список дел + отметки + погода + статусы OAuth + утреннее сообщение + вайшнавский календарь — параллельно. */
-  const [{ data: todoDefs }, { data: completions }, weatherRes, { data: oauthRows }, messageRes, astroRes] = await Promise.all([
+  /* Список дел + отметки + погода + статусы OAuth + вайшнавский календарь — параллельно. */
+  const [{ data: todoDefs }, { data: completions }, weatherRes, { data: oauthRows }, astroRes] = await Promise.all([
     db.from('daily_todos')
       .select('id, todo_key, emoji, emoji_variant, label, sort_order')
       .eq('is_active', true)
@@ -458,7 +451,6 @@
       .eq('date', today),
     db.functions.invoke('weather'),
     db.from('oauth_tokens').select('provider, is_active'),
-    db.functions.invoke('morning-message'),
     db.functions.invoke('astro-api'),
   ])
   const doneSet = new Set(completions.map((c) => c.todo_id))
@@ -660,9 +652,6 @@
   const STATE = {
     date:     formatHeaderDate(tz),
     location: { name: location.name, temperature },
-    panditjiMessage: (messageRes.error || !messageRes.data?.content)
-      ? 'Доброе утро.'
-      : messageRes.data.content,
     whoopConnected,
     sleep,
     googleConnected,
@@ -740,21 +729,6 @@
           </div>
         </div>
       </header>`;
-  }
-
-  function renderMessage(s) {
-    /* panditjiMessage содержит дозволенные <em> — не экранируем. Источник — наш конфиг/LLM, не пользовательский ввод. */
-    return `
-      <section class="px-5 pt-7 pb-1 relative">
-        <div class="flex items-center gap-2 mb-3">
-          <span class="eyebrow-bar inline-block w-4 h-px"></span>
-          <span class="c-terra-deep text-[10.5px] tracking-eyebrow uppercase font-semibold">Пандитджи</span>
-          <span class="flex-1 accent-line"></span>
-        </div>
-        <p class="font-serif-m text-[20.5px] leading-[1.4]" style="color: var(--text);">
-          ${s.panditjiMessage}
-        </p>
-      </section>`;
   }
 
   function renderSleep(s) {
@@ -1022,7 +996,6 @@
     const root = document.getElementById('stage');
     root.innerHTML =
       renderHeader(STATE) +
-      renderMessage(STATE) +
       renderSleep(STATE) +
       renderEvents(STATE) +
       renderTodos(STATE) +
