@@ -12,8 +12,12 @@ import { parseMindMonitorCSV, ParseError } from '../../supabase/functions/parse-
 
 const FIXTURES = new URL('../fixtures/meditation/', import.meta.url)
 
+/* Fixtures are stored gzipped (same format as in Supabase Storage in prod).
+ * We decompress via the standard DecompressionStream — no Node-only deps. */
 async function loadFixture(name: string): Promise<string> {
-  return await Deno.readTextFile(new URL(name, FIXTURES))
+  const compressed = await Deno.readFile(new URL(name + '.gz', FIXTURES))
+  const stream = new Blob([compressed]).stream().pipeThrough(new DecompressionStream('gzip'))
+  return await new Response(stream).text()
 }
 
 Deno.test('good_signal.csv — clean 60-min session', async () => {
