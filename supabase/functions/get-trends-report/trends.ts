@@ -9,6 +9,7 @@
  * meditation_baseline (computed in the next block). Correlations come even later. */
 
 import { mean } from '../parse-meditation-csv/stats.ts'
+import { computeCorrelations, CorrelationsReport } from './correlations.ts'
 
 export type SessionForTrends = {
   id: string
@@ -79,8 +80,9 @@ export type TrendsReport = {
   avgCalmNormalized: NormalizedBaseline | null
   avgAllNormalized: NormalizedBaseline | null
 
-  /* Correlations are stubbed; populated in a later block. */
-  correlations: null
+  /* Spearman + box-plot. Always computed from the input sessions — the
+   * box-plot for distracted internally ignores calm-only. */
+  correlations: CorrelationsReport
 }
 
 export type BuildTrendsInput = {
@@ -162,7 +164,7 @@ export function buildTrendsReport(input: BuildTrendsInput): TrendsReport {
     sma7Ab,
     avgCalmNormalized: input.avgCalmNormalized ?? null,
     avgAllNormalized: input.avgAllNormalized ?? null,
-    correlations: null,
+    correlations: computeCorrelations(input.sessions, input.calmOnly),
   }
 }
 

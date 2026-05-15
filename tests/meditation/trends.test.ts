@@ -76,7 +76,10 @@ Deno.test('shape: empty input → zeros, nulls, empty arrays', () => {
   assertEquals(r.sma7Ab, [])
   assertEquals(r.avgCalmNormalized, null)
   assertEquals(r.avgAllNormalized, null)
-  assertEquals(r.correlations, null)
+  // correlations now always present (shape stable, content "недостаточно данных")
+  assert(r.correlations !== null)
+  assertEquals(r.correlations.sleepVsDeepening.n, 0)
+  assertEquals(r.correlations.distractedVsDeepening.groups.length, 3)
 })
 
 Deno.test('sessions: maps to TrendSession with idx, date, isToday', () => {
