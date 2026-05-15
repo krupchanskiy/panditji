@@ -845,6 +845,34 @@
     loadDay()
   }
 
+  /* Горизонтальный свайп по сетке — смена месяца.
+     Фильтры:
+       - дистанция по X > 60px (большой свайп, не случайный)
+       - |dy| < |dx| (преимущественно горизонтальный жест, не диагональ при скролле)
+       - длительность < 700ms (быстрый жест, не долгое перетаскивание) */
+  function setupCalendarSwipe(el) {
+    let sx = 0, sy = 0, st = 0, active = false
+    el.addEventListener('touchstart', (e) => {
+      if (e.touches.length !== 1) { active = false; return }
+      sx = e.touches[0].clientX
+      sy = e.touches[0].clientY
+      st = Date.now()
+      active = true
+    }, { passive: true })
+    el.addEventListener('touchend', (e) => {
+      if (!active) return
+      active = false
+      const t = e.changedTouches[0]
+      const dx = t.clientX - sx
+      const dy = t.clientY - sy
+      const dt = Date.now() - st
+      if (dt > 700) return
+      if (Math.abs(dx) < 60) return
+      if (Math.abs(dx) < Math.abs(dy) * 1.4) return
+      navigateMonth(dx > 0 ? -1 : 1)
+    }, { passive: true })
+  }
+
   // ---- Init ----
 
   async function init() {
@@ -867,6 +895,7 @@
     document.getElementById('today-btn').addEventListener('click', jumpToToday)
     document.getElementById('loc-pill').addEventListener('click', openSheet)
     document.getElementById('loc-scrim').addEventListener('click', closeSheet)
+    setupCalendarSwipe(document.getElementById('cal-grid'))
 
     await loadMonth()
     await loadDay()
