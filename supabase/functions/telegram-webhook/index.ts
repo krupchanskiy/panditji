@@ -14,6 +14,7 @@ import {
   tryHandlePendingText,
   handleLastCommand, handleStatsCommand,
 } from './meditation.ts'
+import { looksLikeTask, handleTaskFromMessage } from './tasks.ts'
 
 const TG_API = 'https://api.telegram.org'
 const CLAUDE_API = 'https://api.anthropic.com/v1/messages'
@@ -361,6 +362,15 @@ Deno.serve(async (req) => {
       .from('locations').select('timezone')
       .eq('id', profile.current_location_id).maybeSingle()
     if (loc?.timezone) tz = loc.timezone
+  }
+
+  /* Task branch — runs BEFORE calendar event parsing. Prefix-triggered: only fires
+   * when the message opens with «задача …», «поставь задачу …», «напомни …» etc.
+   * Otherwise we fall through to the calendar event parser. */
+  if (looksLikeTask(text)) {
+    await sendTyping(chatId)
+    await handleTaskFromMessage(admin, chatId, profile.id, tz, text, message.message_id)
+    return ok()
   }
 
   const parsed = await parseWithClaude(text, tz)
