@@ -500,7 +500,7 @@ Uptime Kuma на ШРСК пингует Edge Function endpoint Пандитдж
 |---|---|---|---|---|
 | 1 | **Continuous biometrics** | Whoop API | HRV, ЧСС, сон, температура, дыхание, шаги | Сводку сна, recovery score, тренды |
 | 2 | **Daily measurements** | Withings API | Вес, состав тела, ЭКГ, давление, нервная активность | Тренды веса, состояние сердца |
-| 3 | **Meditation** | Muse → Mind Monitor → Telegram | Сырые EEG, агрегированные метрики джапы | Mind wandering, концентрация, динамика |
+| 3 | **Meditation** | Muse → Mind Monitor → Telegram | Сессии джапы, поминутный timeline, агрегаты по кругам, baseline | Углубление Theta, стабильность A/B, спокойные отрезки, корреляции с Whoop |
 | 4 | **Blood tests** | Ручная загрузка фото | Все анализы крови за все периоды | Тренды LDL, D-витамина и т.д. |
 | 5 | **Calendar & events** | Google Calendar + Telegram | Встречи, события, заметки | Расписание на день, ближайшие важные |
 | 6 | **Astrology** | Swiss Ephemeris + gaurabda | Натальная карта, транзиты, даши, вайшнава-календарь | Титхи, праздники, дашá, недельный обзор |
@@ -1233,108 +1233,205 @@ CREATE TABLE withings_advanced (
 
 ### 5.4. Meditation (Muse)
 
-Данные джапы. Пишутся через Mind Monitor → Telegram-бот → парсер.
+Данные джапы по EEG-повязке Muse S Athena. Реализован, всё работает: 9 Edge Functions, PWA-экраны, виджет на утреннем дашборде.
 
-#### `meditation_sessions`
+**Подробнее о домене** — в `domains/meditation/README.md`.
 
-Каждая сессия джапы — одна запись.
+#### Поток данных
+
+```
+Muse Athena → Mind Monitor (Android) → CSV → Telegram-бот (share-intent)
+          → parse-meditation-csv → meditation_sessions + Storage (gzip-CSV)
+          → диалог в боте (kind, circles, place, distracted, rating)
+          → compute-meditation-circles → meditation_circles + теги + интерпретации
+          → enrich-meditation-with-whoop (sleep + recovery контекст)
+          → PWA: /meditation/sessions.html и /meditation/trends.html + виджет на /morning.html
+```
+
+У Muse нет публичного API, поэтому идём через CSV-экспорт из Mind Monitor.
+
+#### Четыре таблицы
+
+**`meditation_sessions`** — главная таблица, одна строка = одна сессия.
 
 ```sql
 CREATE TABLE meditation_sessions (
-    id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id         uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-    location_id     uuid REFERENCES locations(id),
+    id                    uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id               uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    source                text NOT NULL DEFAULT 'mind_monitor',
 
-    -- Идемпотентность (Telegram file_id)
-    telegram_file_id    text NOT NULL UNIQUE,    -- стабильный ID файла в Telegram
-    telegram_message_id text NOT NULL,           -- ссылка на сообщение для удаления/контекста
-    file_name           text NOT NULL,           -- 'mindMonitor_2026-05-13_04-30-00.csv'
-    file_size_bytes     int NOT NULL,
+    started_at            timestamptz NOT NULL,
+    ended_at              timestamptz NOT NULL,
+    duration_sec          int NOT NULL,
+    location_id           uuid REFERENCES locations(id) ON DELETE SET NULL,
 
-    -- Временные границы
-    start_at        timestamptz NOT NULL,
-    end_at          timestamptz NOT NULL,
-    duration_seconds int NOT NULL,
+    -- Тип и учёт в статистике
+    session_kind          text NOT NULL DEFAULT 'regular'
+                          CHECK (session_kind IN ('regular', 'preview')),
+    excluded_from_stats   boolean NOT NULL DEFAULT false,
+    excluded_reason       text CHECK (excluded_reason IN ('preview', 'manual')),
+    excluded_at           timestamptz,
 
-    -- Тип сессии
-    session_type    text NOT NULL DEFAULT 'japa',  -- 'japa', 'meditation', 'other'
+    -- Подтверждается после диалога в боте
+    circles               int CHECK (circles IS NULL OR circles BETWEEN 1 AND 200),
+    pace_min_per_circle   numeric(4,2),
 
-    -- Качество записи
-    quality_score   numeric(4,2),            -- 0-100, насколько чистый сигнал
-    artifacts_pct   numeric(5,2),            -- % времени с артефактами
+    -- Качество сигнала
+    signal_quality_pct    numeric(5,2) NOT NULL,
+    artifacts_level       text NOT NULL
+                          CHECK (artifacts_level IN ('низкий', 'умеренный', 'высокий')),
+    electrodes_status     jsonb NOT NULL,         -- { TP9, AF7, AF8, TP10 }
+    headband_on_pct       numeric(5,2) NOT NULL,
 
-    -- Агрегированные EEG-метрики
-    delta_avg       numeric(8,4),
-    theta_avg       numeric(8,4),
-    alpha_avg       numeric(8,4),
-    beta_avg        numeric(8,4),
-    gamma_avg       numeric(8,4),
+    -- Артефакт повязки (резкая ступенька, HSI этого не ловит)
+    signal_shift_at_sec   int,
+    signal_shift_severity text CHECK (signal_shift_severity IN ('medium', 'high')),
+    deepening_reliable    boolean,  -- null = circles не подтверждён
 
-    -- Производные показатели практики
-    mind_wandering_pct      numeric(5,2),
-    deep_focus_pct          numeric(5,2),
-    calm_periods_count      int,
-    longest_calm_seconds    int,
+    -- Контекст от пользователя
+    distracted            text,
+    self_rating           int CHECK (self_rating BETWEEN 1 AND 5),
+    user_note             text,
 
-    -- Динамика во времени
-    timeline_data           jsonb,
+    -- Кэш Whoop-контекста (заполняется enrich-функцией)
+    whoop_sleep_hours     numeric(4,2),
+    whoop_recovery_pct    int,
+    whoop_enriched_at     timestamptz,
 
-    -- Связь с биометрикой того же дня
-    whoop_recovery_id       uuid REFERENCES whoop_recovery(id),
+    -- Сессионные медианы относительных мощностей и индексов
+    alpha_median_rel, theta_median_rel, beta_median_rel,
+    gamma_median_rel, delta_median_rel,
+    ab_index_median, tb_index_median   numeric(5,2) NOT NULL,
 
-    source          text NOT NULL DEFAULT 'telegram_mind_monitor',
-    created_at              timestamptz NOT NULL DEFAULT now(),
-    updated_at              timestamptz NOT NULL DEFAULT now()
+    -- Theta/Alpha/Delta + HR по третям сессии
+    alpha_first_third, alpha_last_third, theta_first_third, theta_last_third,
+    delta_first_third, delta_last_third,
+    hr_first_third, hr_last_third, hr_median,
+
+    -- Производные метрики (после circles)
+    deepening_pct         numeric(6,2),
+    longest_calm_sec      int,
+    longest_calm_at_sec   int,
+    calm_periods_count    int,
+
+    -- Категория длительности vs персональная медиана за 30 дней
+    duration_category     text CHECK (duration_category IN ('standard', 'short', 'long')),
+    duration_vs_median_pct numeric(5,1),
+
+    -- Timeline 30-секундных окон (для пересчёта calm и графиков)
+    timeline_30s          jsonb,
+
+    -- Теги и интерпретации
+    auto_tags             text[] NOT NULL DEFAULT '{}',
+    user_tags             text[] NOT NULL DEFAULT '{}',
+    interpretations       jsonb,   -- { main, calm, phases: [{label, range, note}] }
+    interpretation_version text NOT NULL DEFAULT 'v1',
+
+    -- Хранение исходного CSV для re-parse при апгрейде парсера
+    csv_storage_path      text NOT NULL,
+    csv_size_bytes        int NOT NULL,
+    parser_version        text NOT NULL DEFAULT 'v1',
+
+    created_at            timestamptz NOT NULL DEFAULT now(),
+    updated_at            timestamptz NOT NULL DEFAULT now()
 );
-
-COMMENT ON COLUMN meditation_sessions.telegram_file_id IS 'Telegram file_id — стабильный идентификатор файла в Telegram. Используется для идемпотентности парсинга.';
-COMMENT ON COLUMN meditation_sessions.telegram_message_id IS 'Telegram message_id отправки CSV — для контекста и возможного удаления старых сообщений.';
-
-CREATE INDEX idx_meditation_sessions_user_date ON meditation_sessions(user_id, start_at DESC);
 ```
 
-**Workflow получения данных Muse:**
+(полная схема с CHECK-constraints и индексами — в миграции [017_meditation.sql](../infra/supabase/migrations/017_meditation.sql))
 
-1. После джапы Адриан нажимает Stop в Mind Monitor
-2. Android показывает share-меню, Адриан выбирает «Telegram» → «@panditji_bot»
-3. CSV прилетает в Telegram-бот (webhook → Edge Function)
-4. Edge Function `telegram-webhook` распознаёт CSV по типу файла и имени (`mindMonitor_*.csv`)
-5. Сохраняет файл в Supabase Storage, парсит, заносит в `meditation_sessions`
-6. Отправляет короткое подтверждение пользователю в чат
-
-**Заметки:**
-- Mind Monitor на Android **НЕ умеет** автосохранение в Google Drive (только share-intent при каждом stop). Поэтому используем Telegram как транспорт
-- `telegram_file_id` обеспечивает идемпотентность — повторная отправка того же файла не создаст дубль
-- Можно дублировать в Dropbox через тот же share-intent (Mind Monitor для iOS имеет лучшую Dropbox-интеграцию), но **для MVP** одного канала через Telegram достаточно
-
-#### `meditation_eeg_raw`
-
-Сырые EEG-данные. Опционально — для будущего глубокого анализа.
+**`meditation_circles`** — агрегаты по каждому кругу. Заполняется только после подтверждения `circles` в боте.
 
 ```sql
-CREATE TABLE meditation_eeg_raw (
-    id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    session_id      uuid NOT NULL REFERENCES meditation_sessions(id) ON DELETE CASCADE,
-
-    -- Ссылка на полный CSV в Storage
-    storage_path    text NOT NULL,           -- 'eeg-raw/2026-05-13/session-uuid.csv.gz'
-    file_size_bytes int NOT NULL,
-    row_count       int NOT NULL,            -- сколько точек в файле
-
-    -- Метаданные записи
-    sample_rate_hz  int NOT NULL DEFAULT 256,
-    channels        text[] NOT NULL,         -- ['TP9', 'AF7', 'AF8', 'TP10', 'AUX']
-
-    created_at      timestamptz NOT NULL DEFAULT now()
+CREATE TABLE meditation_circles (
+    id           uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    session_id   uuid NOT NULL REFERENCES meditation_sessions(id) ON DELETE CASCADE,
+    circle_num   int NOT NULL,
+    t_start_sec, t_end_sec  int NOT NULL,
+    alpha_rel, theta_rel, beta_rel, gamma_rel, delta_rel  numeric(5,2) NOT NULL,
+    ab_index, tb_index      numeric(5,2) NOT NULL,
+    signal_pct              numeric(5,2) NOT NULL,
+    UNIQUE(session_id, circle_num)
 );
 ```
 
-**Заметки:**
-- Сырой CSV — несколько МБ за сессию, 60+ МБ в месяц. В PostgreSQL хранить такое не надо, в Storage — нормально
-- На MVP можно вообще не сохранять сырые данные, только агрегаты. Решим перед стартом разработки
-- Через год, когда соберётся большой архив, можно будет переразобрать с улучшенным алгоритмом
+**`meditation_baseline`** — кэш средних за период. Один user × period × calm_only = одна строка. Пересчитывается лениво (без cron).
 
-**Нормы джапы хранятся в общей таблице `baselines`** (см. раздел 5.2) с `domain = 'meditation'`, `metric = 'mind_wandering_pct'` и т.д. Через 2-3 месяца у нас будет «эталонная джапа Ачинтьи», и можно будет говорить «сегодня была лучше обычного» осмысленно.
+```sql
+CREATE TABLE meditation_baseline (
+    user_id, period, calm_only — UNIQUE
+    session_count int,
+    avg_deepening, avg_stability, avg_beta,
+    avg_longest_calm_sec, avg_calm_periods_count,
+    avg_alpha_normalized, avg_theta_normalized,
+    avg_beta_normalized,  avg_ab_normalized   numeric[16],  -- 16-бинная нормализация по позиции
+    computed_at timestamptz
+);
+```
+
+Нормализация по позиции: круги сессии распределяются по 16 бинам `[i/16, (i+1)/16]`. Так baseline сравним для сессий с разным числом кругов (12-круговая, 16-круговая, 24-круговая) — сегодняшние N кругов resample'ятся из baseline[16] линейной интерполяцией.
+
+**`meditation_pending_session`** — состояние диалога в Telegram-боте. Один pending на пользователя.
+
+```sql
+CREATE TABLE meditation_pending_session (
+    user_id       uuid PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+    session_id    uuid NOT NULL REFERENCES meditation_sessions(id) ON DELETE CASCADE,
+    step          text NOT NULL
+                  CHECK (step IN ('kind', 'circles', 'location', 'location_custom', 'distracted', 'rating')),
+    started_at, expires_at, updated_at  timestamptz
+);
+```
+
+Просроченные (`expires_at < now()`) удаляются при новом CSV тихо.
+
+#### Storage
+
+CSV хранится gzip-сжатым в bucket `meditation-csv` по пути `{user_id}/{session_id}.csv.gz` (миграция [018](../infra/supabase/migrations/018_meditation_storage.sql)). 20 МБ лимит на файл (raw ~50 МБ → gzip ~3-5 МБ). RLS по первому сегменту пути = `auth.uid()`.
+
+Зачем храним CSV отдельно от агрегатов:
+- Возможность перепарсить при обновлении парсера (`parser_version`)
+- Возможность добавить новые метрики и пересчитать историю
+
+#### Edge Functions (9 штук)
+
+| Функция | Триггер | Что делает |
+|---|---|---|
+| `parse-meditation-csv` | telegram-webhook после CSV | CSV → сессионные агрегаты, timeline 30s, signal-shift детектор. Не разбивает на круги. |
+| `compute-meditation-circles` | telegram-webhook после подтверждения circles | Разбивка по кругам, deepening_pct, longest_calm (P75), duration_category, авто-теги, интерпретации. Триггерит recompute-baseline и enrich-whoop. |
+| `recompute-meditation-baseline` | compute, toggle, lazy из read-функций | 4 периода × 2 calm_only = 8 baseline-строк. 16-бинная нормализация. |
+| `enrich-meditation-with-whoop` | async из compute + hourly sweep | Sleep предыдущей ночи + recovery score за день сессии. После 7 дней без данных перестаёт пытаться. |
+| `get-session-report` | PWA: /meditation/sessions.html | SessionReport: сигнал, perCircle, фазы, теги, compare per-circle с baseline (3 метрики), longest_calm. Lazy recompute baseline если устарел. |
+| `get-trends-report` | PWA: /meditation/trends.html | TrendsReport: сессии за период, SMA-7, normalized averages, 4 корреляции (Spearman). |
+| `get-japa-summary-widget` | PWA: /morning.html виджет | 5 состояний: no_sessions / pending_context / stale / fresh+metrics / fresh+noCompareReason. |
+| `toggle-session-exclusion` | PWA: кнопка на сессии | Флипает `excluded_from_stats`, пересчитывает baseline. |
+| `telegram-webhook` (ветка джапы) | Telegram update | Принимает CSV-документ, ведёт диалог из 5 шагов, /last, /stats, /cancel. |
+
+#### Ключевые формулы (единственный источник правды — глоссарий в [japa-code-brief.md])
+
+- **Углубление** (`deepening_pct`) — `(theta_last_third - theta_first_third) / theta_first_third × 100`. NULL если `theta_first_third < 1%` (защита от деления на близкое к нулю), `reliable=false` при потолке `|Δ| > 200%` или наличии signal-shift.
+- **Стабильность** (`ab_index_median`) — медиана Alpha/Beta индекса по сессии. Чем выше — тем меньше «болтающего ума».
+- **Calm-окно** — 30-сек окно, где `ab_index > P75` по этой конкретной сессии. Идея: не «тихая Beta» (произвольный порог), а моменты, когда Alpha доминирует над Beta сильнее обычного для этой сессии.
+- **Longest calm** — самый длинный непрерывный run calm-окон. Минимум — 30 сек. Считается только до точки signal-shift, если она была.
+- **Signal-shift детектор** — ловит резкую ступеньку в band-powers: Theta ×2.5 ИЛИ Alpha ×0.4 за 30 сек с удержанием 5 мин. HSI этого не ловит (электрод на коже, но «видит» другой участок).
+- **Сонливость** — Theta↑ + Delta↑ + HR↓ в последней трети. Отличается от углубления вторым и третьим признаком. Под-давлен при наличии signal-shift, иначе ложное срабатывание.
+- **Calm-only baseline** зависит **только** от технического качества (signal_quality_pct ≥ 80, нет shift=high, deepening_reliable). НЕ от `self_rating` или `distracted` — иначе baseline становится зависимым от субъективной оценки (circular reasoning).
+- **Duration_category** — `standard` если ±25% от персональной медианы за 30 дней (нужно ≥5 сессий). Иначе `short`/`long` → не входит в baseline, не показывает compare на экране сессии (физиологически несравнимы).
+- **Корреляции** — Spearman (непараметрический). Significant: `|r| > 0.3 AND n ≥ 14`. Box-plot «отвлекали → углубление» НЕ применяет calm-фильтр (иначе колонка «сильно» исчезает).
+
+#### Тон интерпретаций
+
+Все тексты под графиками генерируются **шаблонами в коде**, не LLM. Это даёт детерминированность, ноль cost, контроль тона. Есть лит-функция `assertNoForbidden` с запрещёнными словами («идеально», «молодец», «продолжай в том же духе», «к сожалению», эмодзи) — если шаблон случайно родит такое, unit-тест упадёт.
+
+#### PWA-маршруты
+
+- `/meditation/sessions.html?id=<uuid>` — экран сессии: signal, главный график (3 формы bars/stream/lines), calm-strip, фазы, теги, сравнение per-circle с baseline.
+- `/meditation/trends.html` — статистика: period+calm toggle, summary, 2 trend chart с SMA-7, 4 correlation cards.
+- `/morning.html` — виджет джапы в утреннем дашборде (5 состояний).
+- `/meditation/_preview*.html` — design-preview без auth и API, для итераций UI (mock-данные inline).
+
+**Связь с биометрикой**: сессии вытягивают Whoop-контекст того же дня через `enrich-meditation-with-whoop`. Это даёт корреляцию «сон → углубление» в трендах. Direct FK на `whoop_recovery` нет — вместо этого денормализованный кэш (`whoop_sleep_hours`, `whoop_recovery_pct`).
+
+**Нормы джапы** — в собственной таблице `meditation_baseline` с 16-бинной нормализацией. Общая `baselines` (раздел 5.2) для медитации НЕ используется — слишком разные структуры (per-position vs per-day).
 
 ---
 

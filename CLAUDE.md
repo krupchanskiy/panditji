@@ -229,9 +229,15 @@ panditji/
 
 **MVP (Phase 0-2):** биометрика, чек-ины, утренний экран, Telegram-бот, парсер анализов, астрология базовая, вайшнава-календарь, Muse-парсер.
 
+**Что готово сейчас:**
+- Whoop fetcher + утренний экран
+- Google Calendar (диктовка через Telegram)
+- Астрология + вайшнава-календарь
+- **Meditation домен** — полностью: 9 Edge Functions, парсер CSV из Mind Monitor, разбивка по кругам, deepening / longest_calm / baseline / корреляции, Telegram-flow с диалогом, PWA-экраны (`/meditation/sessions.html`, `/meditation/trends.html`) и виджет на `/morning.html`. 123 unit-теста. См. `domains/meditation/README.md`.
+
 **Phase 3 (после MVP):** SRS для шлок, SRS для хинди, лекции БВГ.
 
-**Phase 4 (через 2-3 мес после старта):** ИИ-инсайты, корреляции, недельные сводки.
+**Phase 4 (через 2-3 мес после старта):** ИИ-инсайты, корреляции, недельные сводки. *(Корреляции уже частично реализованы внутри `meditation` — Spearman + box-plot на странице трендов).*
 
 **Phase 5 (опционально):** CGM-сессии, датчик воздуха, тонометр.
 

@@ -99,13 +99,18 @@
 
 ## ✅ Telegram Bot
 
-Статус: **создан 2026-05-14**
+Статус: **создан 2026-05-14**, работает
 
 - [x] Бот создан через @BotFather
 - [x] Bot Token получен и сохранён в password manager пользователя
 - [ ] Имя бота / username: **записать в чек-лист**
-- [ ] Webhook URL настроен (после создания Supabase-проекта)
-- [ ] Bot Token загружен в Supabase Edge Function secrets
+- [x] Webhook URL настроен на `telegram-webhook` Edge Function
+- [x] Bot Token загружен в Supabase Edge Function secrets (`TELEGRAM_BOT_TOKEN`)
+- [x] `TELEGRAM_WEBHOOK_SECRET` настроен (проверяется в заголовке X-Telegram-Bot-Api-Secret-Token)
+
+**Ветки бота**:
+- Текст/голос → Claude → Google Calendar (домен calendar)
+- CSV-документ → Mind Monitor → парсер джапы (домен meditation): диалог 5 шагов, /last, /stats, /cancel
 
 ---
 
@@ -164,6 +169,18 @@ sb_publishable_IgyFEUad8sMGQSacSj3L_Q_NciIqamm
 **Secret key** (хранится в password manager, используется в Edge Functions через `SUPABASE_SECRET_KEY`):
 - Хранится у пользователя
 - Также загружается в Supabase Edge Function secrets автоматически (доступен как `SUPABASE_SERVICE_ROLE_KEY`)
+
+**Personal Access Token** (для `supabase` CLI: deploy / migrations):
+- Создаётся в `Dashboard → Account → Tokens` (формат `sbp_...`)
+- Передаётся в CLI как `SUPABASE_ACCESS_TOKEN` env var
+- Не путать с `sb_secret_*` (это service-role key проекта — для рантайма Edge Functions)
+
+### Optional env vars для Edge Functions
+
+| Variable | Где задаётся | Назначение |
+|---|---|---|
+| `PANDITJI_FRONTEND_URL` | Dashboard → Edge Functions → Secrets | Базовый URL фронта для deep-link'ов из Telegram-бота. Default: `https://in.adrian.ru`. Не блокирует работу, просто меняет ссылки в сообщениях. |
+| `OPENAI_API_KEY` | то же | Whisper для транскрипции голосовых в Telegram (домен calendar). |
 
 ---
 
