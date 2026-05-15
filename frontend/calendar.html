@@ -358,6 +358,37 @@
   .loc-item .spinner { width: 16px; height: 16px; border: 2px solid color-mix(in oklch, var(--terra-deep) 30%, transparent); border-top-color: var(--terra-deep); border-radius: 50%; animation: spin 0.8s linear infinite; }
   @keyframes spin { to { transform: rotate(360deg); } }
 
+  /* Sheet search */
+  .loc-search {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 14px; border-radius: 14px;
+    background: rgba(255,255,255,0.55);
+    border: 1px solid rgba(255,255,255,0.7);
+    margin-bottom: 12px;
+  }
+  .loc-search svg { color: var(--text-3); flex: none; }
+  .loc-search input {
+    flex: 1; min-width: 0;
+    border: none; outline: none; background: transparent;
+    font-size: 14px; font-weight: 500; color: var(--ink-2);
+    font-family: inherit;
+  }
+  .loc-search input::placeholder { color: var(--text-3); font-weight: 500; }
+  .loc-search .clear-btn {
+    color: var(--text-3); flex: none; cursor: pointer;
+    width: 22px; height: 22px; border-radius: 50%;
+    display: grid; place-items: center;
+    background: rgba(255,255,255,0.4);
+    border: 1px solid var(--hairline);
+  }
+  .search-hint {
+    font-size: 11.5px; color: var(--text-3);
+    text-align: center; padding: 10px;
+    font-style: italic;
+  }
+  .loc-item.found .pin { color: var(--sage-deep); border-style: solid; }
+  .loc-item.found .info .sub { color: var(--text-2); }
+
   /* Loading skeletons */
   .skeleton {
     background: linear-gradient(90deg, rgba(255,255,255,0.4), rgba(255,255,255,0.7), rgba(255,255,255,0.4));
@@ -426,10 +457,26 @@
 <div class="sheet" id="loc-sheet">
   <div class="grip"></div>
   <div class="sheet-title">Где считать</div>
-  <div class="group-h">Сохранённые</div>
-  <div class="loc-list" id="loc-saved"></div>
-  <div class="group-h">Часто</div>
-  <div class="loc-list" id="loc-suggested"></div>
+
+  <div class="loc-search">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+    <input id="loc-search-input" type="text" placeholder="Найти место — город, страна" autocomplete="off">
+    <button class="clear-btn" id="loc-search-clear" aria-label="очистить" style="display: none;">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+    </button>
+  </div>
+
+  <div id="loc-search-section" style="display: none;">
+    <div class="group-h">Найдено</div>
+    <div class="loc-list" id="loc-found"></div>
+  </div>
+
+  <div id="loc-default-section">
+    <div class="group-h">Сохранённые</div>
+    <div class="loc-list" id="loc-saved"></div>
+    <div class="group-h">Часто</div>
+    <div class="loc-list" id="loc-suggested"></div>
+  </div>
 </div>
 
 <script type="module">
@@ -695,6 +742,9 @@
   function openSheet() {
     document.getElementById('loc-scrim').classList.add('open')
     document.getElementById('loc-sheet').classList.add('open')
+    document.getElementById('loc-search-input').value = ''
+    document.getElementById('loc-search-clear').style.display = 'none'
+    showDefaultSheet()
     renderSheet()
   }
   function closeSheet() {
@@ -768,27 +818,154 @@
   async function addSuggestedLocation(suggestionKey, btnEl) {
     const sug = SUGGESTED_LOCATIONS.find(s => s.key === suggestionKey)
     if (!sug) return
+    await addLocationAndSwitch({
+      key: sug.key, name: sug.name, country: sug.country,
+      lat: sug.lat, lon: sug.lon, timezone: sug.timezone,
+    }, btnEl)
+  }
+
+  async function addLocationAndSwitch(loc, btnEl) {
     // Optimistic UI
     btnEl.classList.add('loading')
     btnEl.innerHTML = `<span class="pin">${pinSvg()}</span>
       <div class="info">
-        <div class="nm">${esc(sug.name)}</div>
+        <div class="nm">${esc(loc.name)}</div>
         <div class="sub">Добавляю и считаю календарь…</div>
       </div>
       <span class="spinner"></span>`
 
     const { data, error } = await db.functions.invoke('add-location', {
-      body: { key: sug.key, name: sug.name, country: sug.country, lat: sug.lat, lon: sug.lon, timezone: sug.timezone },
+      body: { key: loc.key, name: loc.name, country: loc.country, lat: loc.lat, lon: loc.lon, timezone: loc.timezone },
     })
     if (error) {
       alert('Не получилось добавить: ' + error.message)
       return
     }
-    // Перезагружаем локации и переключаемся
     await loadLocations()
     if (data?.location_id) {
       await switchLocation(data.location_id)
     }
+  }
+
+  /* ---- Геокодер: Nominatim + timeapi.io напрямую из браузера ---- */
+
+  function locationKey(name, lat, lon) {
+    // slug имени + хвост координат — чтобы две разные «Москвы» (если такое будет) не схлопнулись
+    const slug = String(name).toLowerCase()
+      .replace(/[^a-zа-яё0-9\s-]/gi, '')
+      .trim().replace(/\s+/g, '-').substring(0, 24)
+    const coordTag = `${Math.abs(lat).toFixed(1)}_${Math.abs(lon).toFixed(1)}`.replace(/\./g, '')
+    return `${slug || 'loc'}-${coordTag}`
+  }
+
+  async function geocodeQuery(q) {
+    const url = new URL('https://nominatim.openstreetmap.org/search')
+    url.searchParams.set('q', q)
+    url.searchParams.set('format', 'json')
+    url.searchParams.set('addressdetails', '1')
+    url.searchParams.set('limit', '5')
+    url.searchParams.set('accept-language', 'ru,en')
+    const res = await fetch(url.toString(), { headers: { 'Accept': 'application/json' } })
+    if (!res.ok) throw new Error('geocoding ' + res.status)
+    const items = await res.json()
+    return items.map(it => {
+      const a = it.address || {}
+      const name = a.city || a.town || a.village || a.municipality || a.county || a.state ||
+                   (it.display_name || '').split(',')[0] || '—'
+      return {
+        name, country: a.country || '',
+        lat: Number(it.lat), lon: Number(it.lon),
+        display_name: it.display_name || '',
+      }
+    })
+  }
+
+  async function lookupTimezone(lat, lon) {
+    const url = `https://timeapi.io/api/TimeZone/coordinate?latitude=${lat}&longitude=${lon}`
+    const res = await fetch(url, { headers: { 'Accept': 'application/json' } })
+    if (!res.ok) return null
+    const data = await res.json()
+    return data?.timeZone || null
+  }
+
+  let searchSeq = 0  // защита от race: применяем только последний запрос
+  let searchTimer = null
+
+  function onSearchInput(value) {
+    const q = value.trim()
+    const clearBtn = document.getElementById('loc-search-clear')
+    clearBtn.style.display = q ? 'grid' : 'none'
+
+    if (searchTimer) clearTimeout(searchTimer)
+    if (q.length < 2) {
+      showDefaultSheet()
+      return
+    }
+    searchTimer = setTimeout(() => runSearch(q), 350)
+  }
+
+  function showDefaultSheet() {
+    document.getElementById('loc-search-section').style.display = 'none'
+    document.getElementById('loc-default-section').style.display = ''
+  }
+
+  function showSearchSheet() {
+    document.getElementById('loc-search-section').style.display = ''
+    document.getElementById('loc-default-section').style.display = 'none'
+  }
+
+  async function runSearch(q) {
+    const seq = ++searchSeq
+    showSearchSheet()
+    const found = document.getElementById('loc-found')
+    found.innerHTML = `<div class="search-hint">Ищу «${esc(q)}»…</div>`
+
+    let items
+    try {
+      items = await geocodeQuery(q)
+    } catch (e) {
+      if (seq !== searchSeq) return
+      found.innerHTML = `<div class="search-hint">Не получилось: ${esc(e.message)}</div>`
+      return
+    }
+    if (seq !== searchSeq) return
+    if (items.length === 0) {
+      found.innerHTML = `<div class="search-hint">Ничего не нашлось</div>`
+      return
+    }
+
+    // Отрисуем без tz сразу, чтобы пользователь видел список,
+    // tz подгрузим параллельно и подставим в data-атрибуты.
+    found.innerHTML = items.map((it, i) => `
+      <div class="loc-item found" data-idx="${i}">
+        <span class="pin">${pinSvg()}</span>
+        <div class="info">
+          <div class="nm">${esc(it.name)}${it.country ? `, ${esc(it.country)}` : ''}</div>
+          <div class="sub num">${fmtCoords(it.lat, it.lon)}</div>
+        </div>
+      </div>
+    `).join('')
+
+    // Резолвим tz параллельно — но молча, не блокируя UI
+    const tzs = await Promise.all(items.map(it => lookupTimezone(it.lat, it.lon).catch(() => null)))
+    if (seq !== searchSeq) return
+    items.forEach((it, i) => { it.timezone = tzs[i] })
+
+    found.querySelectorAll('.loc-item[data-idx]').forEach(el => {
+      el.addEventListener('click', () => {
+        const it = items[Number(el.dataset.idx)]
+        if (!it.timezone) {
+          alert('Не удалось определить часовой пояс. Попробуйте другой результат или повторите поиск.')
+          return
+        }
+        addLocationAndSwitch({
+          key: locationKey(it.name, it.lat, it.lon),
+          name: it.name,
+          country: it.country || 'неизвестно',
+          lat: it.lat, lon: it.lon, timezone: it.timezone,
+        }, el)
+      })
+    })
   }
 
   // ---- Data loading ----
@@ -895,6 +1072,13 @@
     document.getElementById('today-btn').addEventListener('click', jumpToToday)
     document.getElementById('loc-pill').addEventListener('click', openSheet)
     document.getElementById('loc-scrim').addEventListener('click', closeSheet)
+    document.getElementById('loc-search-input').addEventListener('input', (e) => onSearchInput(e.target.value))
+    document.getElementById('loc-search-clear').addEventListener('click', () => {
+      const inp = document.getElementById('loc-search-input')
+      inp.value = ''
+      onSearchInput('')
+      inp.focus()
+    })
     setupCalendarSwipe(document.getElementById('cal-grid'))
 
     await loadMonth()
