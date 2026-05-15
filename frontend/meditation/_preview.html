@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Сессия — предпросмотр</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=EB+Garamond:ital,wght@0,400;0,500;1,400;1,500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:        oklch(0.965 0.010 235);
+    --ink:       oklch(0.32 0.060 250);
+    --ink-2:     oklch(0.25 0.060 250);
+    --ink-soft:  oklch(0.44 0.055 250);
+    --text:      oklch(0.27 0.030 245);
+    --text-2:    oklch(0.50 0.022 240);
+    --text-3:    oklch(0.62 0.015 240);
+    --sage-deep: oklch(0.52 0.085 235);
+    --terra-deep:oklch(0.60 0.115 25);
+    --gold-deep: oklch(0.50 0.10 70);
+  }
+  html, body { min-height: 100vh; }
+  body {
+    font-family: 'Manrope', ui-sans-serif, sans-serif;
+    color: var(--text);
+    -webkit-font-smoothing: antialiased;
+    background:
+      radial-gradient(80% 70% at 85% 5%,  oklch(0.85 0.05 250 / 0.32) 0%, transparent 75%),
+      radial-gradient(75% 65% at 8% 28%,  oklch(0.84 0.045 230 / 0.32) 0%, transparent 78%),
+      radial-gradient(85% 60% at 95% 80%, oklch(0.86 0.04 290 / 0.22) 0%, transparent 75%),
+      linear-gradient(180deg, oklch(0.965 0.010 235), oklch(0.94 0.016 235));
+    background-attachment: fixed;
+  }
+  .font-serif-m { font-family: 'EB Garamond', Georgia, serif; }
+  .num { font-feature-settings: "tnum" 1; font-variant-numeric: tabular-nums; }
+  .tracking-eyebrow { letter-spacing: 0.12em; }
+  .c-ink { color: var(--ink); } .c-ink-2 { color: var(--ink-2); }
+  .c-text { color: var(--text); } .c-text-2 { color: var(--text-2); } .c-text-3 { color: var(--text-3); }
+</style>
+</head>
+<body>
+  <main class="mx-auto max-w-[420px] px-4 py-4" id="root">
+    <div class="text-[13px] c-text-3 py-12 text-center">Загружаю предпросмотр…</div>
+  </main>
+
+  <script type="module">
+    import { renderSession, SESSION_STYLES } from '/js/meditation/render-session.js'
+
+    const styleEl = document.createElement('style')
+    styleEl.textContent = SESSION_STYLES
+    document.head.appendChild(styleEl)
+
+    const mockReport = {
+      id: 'mock-preview', date: '15 мая 2026, четверг',
+      time: { start: '06:37', end: '07:37' },
+      durationMin: 60.6, circles: 16, paceMinPerCircle: 3.79,
+      location: { id: 'l', name: 'Москва, дома' },
+      kind: 'regular', excludedFromStats: false, excludedReason: null,
+      context: {
+        distracted: 'никто', selfRating: 4,
+        whoopSleep: '6:30', whoopRecovery: 72,
+        userNote: 'Тихое утро, нашёл темп на 8-м круге.',
+      },
+      signal: {
+        overall: 99.89, artifacts: 'низкий',
+        electrodes: { TP9: 'ok', AF7: 'ok', AF8: 'ok', TP10: 'ok' },
+        headbandOnPct: 99.89, shift: null, deepeningReliable: true,
+      },
+      perCircle: Array.from({length: 16}, (_, i) => ({
+        i: i + 1,
+        alpha: 38 + Math.sin(i / 2) * 5,
+        theta: 14 + i * 0.6,
+        beta: 12 - i * 0.2,
+      })),
+      compare: {
+        deepening: {
+          todayValue: 63.2, unit: '%',
+          todayPerCircle: Array.from({length: 16}, (_, i) => 14 + i * 0.6),
+          periods: {
+            w: null,
+            m: { baselineValue: 45, baselinePerCircle: Array.from({length: 16}, (_, i) => 13 + i * 0.4), deltaPct: 40.4, sessionCount: 18 },
+            q: null, all: null,
+          },
+          hiddenReason: null,
+        },
+        stability: {
+          todayValue: 3.01, unit: 'index',
+          todayPerCircle: Array.from({length: 16}, (_, i) => 2.5 + (i % 3) * 0.4),
+          periods: {
+            w: null,
+            m: { baselineValue: 2.7, baselinePerCircle: Array.from({length: 16}, () => 2.6), deltaPct: 11.5, sessionCount: 18 },
+            q: null, all: null,
+          },
+          hiddenReason: null,
+        },
+        beta: {
+          todayValue: 15.33, unit: '%',
+          todayPerCircle: Array.from({length: 16}, (_, i) => 12 - i * 0.2),
+          periods: {
+            w: null,
+            m: { baselineValue: 18, baselinePerCircle: Array.from({length: 16}, () => 16), deltaPct: -14.8, sessionCount: 18 },
+            q: null, all: null,
+          },
+          hiddenReason: null,
+        },
+      },
+      longestCalmSec: 630, longestCalmAtSec: 1620, calmPeriodsCount: 4,
+      phases: [
+        { label: 'Вход', range: [1, 3], note: 'Первые 3 круга ум собирался. После — стабилизация Alpha.' },
+        { label: 'Плато', range: [4, 9], note: 'Theta держалась около 14%, без сильных колебаний.' },
+        { label: 'Углубление', range: [10, 16], note: 'С 10-го круга Theta начала расти, к 16-му — 22%.' },
+      ],
+      caption: {
+        main: 'Углубление с 10-го круга — к 16-му кругу Theta выросла с 14% до 22%. Похоже на переход от сосредоточения (dharana) к погружённости (dhyana).',
+        calm: 'Самый длинный отрезок стабильности — 10 мин 30 сек, начался на 8-м круге.',
+      },
+      tags: ['глубокое углубление', 'раннее углубление', 'ровная первая половина'],
+      durationCategory: 'standard', durationVsMedianPct: 1.0,
+    }
+
+    renderSession(document.getElementById('root'), mockReport)
+  </script>
+</body>
+</html>

@@ -15,7 +15,7 @@ import { SupabaseClient } from 'jsr:@supabase/supabase-js@2'
 
 const TG_API = 'https://api.telegram.org'
 const PENDING_TTL_HOURS = 48
-const FRONTEND_BASE = Deno.env.get('PANDITJI_FRONTEND_URL') ?? 'https://panditji.adrian.ru'
+const FRONTEND_BASE = Deno.env.get('PANDITJI_FRONTEND_URL') ?? 'https://in.adrian.ru'
 
 type TgButton = { text: string; callback_data: string }
 type TgKeyboard = { inline_keyboard: TgButton[][] }
@@ -416,7 +416,7 @@ async function finalizeDialog(
   ]))
   /* The frontend link as a text fallback — Telegram doesn't let us put external
    * URLs into callback_data, but we can place one as a plain link in a follow-up. */
-  await tgSend(chatId, `<a href="${FRONTEND_BASE}/meditation/sessions/${sessionId}">Открыть на сайте</a>`)
+  await tgSend(chatId, `<a href="${FRONTEND_BASE}/meditation/sessions.html?id=${sessionId}">Открыть на сайте</a>`)
 }
 
 /* ── /last, /stats ──────────────────────────────────────────────────────── */
@@ -438,11 +438,11 @@ export async function handleLastCommand(
   }
   const report = await buildBriefReport(supabase, last.id as string)
   await tgSend(chatId, report)
-  await tgSend(chatId, `<a href="${FRONTEND_BASE}/meditation/sessions/${last.id}">Открыть на сайте</a>`)
+  await tgSend(chatId, `<a href="${FRONTEND_BASE}/meditation/sessions.html?id=${last.id}">Открыть на сайте</a>`)
 }
 
 export async function handleStatsCommand(chatId: number): Promise<void> {
-  await tgSend(chatId, `Статистика — <a href="${FRONTEND_BASE}/meditation/trends">${FRONTEND_BASE}/meditation/trends</a>`)
+  await tgSend(chatId, `Статистика — <a href="${FRONTEND_BASE}/meditation/trends.html">${FRONTEND_BASE}/meditation/trends.html</a>`)
 }
 
 /* ── brief report builder ──────────────────────────────────────────────── */
