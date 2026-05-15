@@ -8,6 +8,12 @@
  * Безопасность: Telegram setWebhook поддерживает secret_token; проверяем его в заголовке. */
 
 import { createClient, SupabaseClient } from 'jsr:@supabase/supabase-js@2'
+import {
+  handleCsvDocument, isCsvDocument,
+  handleCallback, isMeditationCallback,
+  tryHandlePendingText,
+  handleLastCommand, handleStatsCommand,
+} from './meditation.ts'
 
 const TG_API = 'https://api.telegram.org'
 const CLAUDE_API = 'https://api.anthropic.com/v1/messages'
@@ -225,11 +231,47 @@ Deno.serve(async (req) => {
     return ok()
   }
 
+  /* Callback queries (inline-button taps in the джапа dialog) come on their own field. */
+  if (update.callback_query && isMeditationCallback(update.callback_query.data ?? '')) {
+    const admin = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+    )
+    const tgUserId = update.callback_query.from?.id
+    const { data: profile } = await admin
+      .from('user_profile').select('id')
+      .eq('telegram_chat_id', tgUserId).maybeSingle()
+    if (profile) {
+      await handleCallback(admin, update.callback_query, profile.id as string)
+    }
+    return ok()
+  }
+
   const message = update.message ?? update.edited_message
   if (!message) return ok()
 
   const chatId: number | undefined = message.chat?.id
   if (!chatId) return ok()
+
+  /* CSV document (Mind Monitor export) — джапа branch, handled inside meditation.ts. */
+  if (message.document && isCsvDocument(message)) {
+    const admin = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+    )
+    const { data: profile } = await admin
+      .from('user_profile').select('id')
+      .eq('telegram_chat_id', chatId).maybeSingle()
+    if (!profile) {
+      await sendTg(chatId, 'Не вижу тебя в системе. Открой in.adrian.ru/morning.html и жми «Привязать Telegram».')
+      return ok()
+    }
+    /* Run in background so we return 200 immediately — parsing can take 5-10s. */
+    const userId = profile.id as string
+    // @ts-ignore — EdgeRuntime is provided by Supabase's Deno runtime.
+    EdgeRuntime.waitUntil(handleCsvDocument(admin, chatId, userId, message.document))
+    return ok()
+  }
 
   /* Голос: пишем "печатает...", транскрибируем, пересказываем услышанное и дальше — как текст. */
   let text: string | undefined = message.text
@@ -290,6 +332,25 @@ Deno.serve(async (req) => {
     .maybeSingle()
   if (!profile) {
     await sendTg(chatId, 'Не вижу тебя в системе. Открой in.adrian.ru/morning.html и жми «Привязать Telegram».')
+    return ok()
+  }
+
+  /* Джапа-команды и pending-text. */
+  if (/^\/last(?:@\w+)?\s*$/.test(text)) {
+    await handleLastCommand(admin, chatId, profile.id)
+    return ok()
+  }
+  if (/^\/stats(?:@\w+)?\s*$/.test(text)) {
+    await handleStatsCommand(chatId)
+    return ok()
+  }
+  if (/^\/cancel(?:@\w+)?\s*$/.test(text)) {
+    await admin.from('meditation_pending_session').delete().eq('user_id', profile.id)
+    await sendTg(chatId, 'Незаконченный диалог удалён.')
+    return ok()
+  }
+  /* Pending text input (circles "другое", location_custom). */
+  if (await tryHandlePendingText(admin, chatId, profile.id, text)) {
     return ok()
   }
 
