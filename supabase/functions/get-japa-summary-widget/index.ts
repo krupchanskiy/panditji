@@ -23,7 +23,7 @@ function corsHeadersFor(req: Request): Record<string, string> {
     ?? 'authorization, content-type, apikey, x-client-info, x-supabase-api-version'
   return {
     'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'GET, OPTIONS',
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
     'Access-Control-Allow-Headers': requested,
     'Access-Control-Max-Age': '86400',
   }
@@ -48,7 +48,8 @@ const BASELINE_MIN_SESSIONS = 5
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeadersFor(req) })
-  if (req.method !== 'GET') return json({ error: 'method_not_allowed' }, 405, req)
+  /* GET — наш «канонический» вызов, POST — supabase-js .functions.invoke() defaults. Принимаем оба. */
+  if (req.method !== 'GET' && req.method !== 'POST') return json({ error: 'method_not_allowed' }, 405, req)
 
   const supabaseUrl = Deno.env.get('SUPABASE_URL')
   const anonKey = Deno.env.get('SUPABASE_ANON_KEY')
