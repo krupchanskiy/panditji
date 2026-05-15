@@ -1,0 +1,16 @@
+{
+  "name": "Пандитджи",
+  "short_name": "Пандитджи",
+  "description": "Личная ИИ-система: биометрика, чек-ины, утренний экран, джапа.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "lang": "ru",
+  "background_color": "#f4f3f5",
+  "theme_color": "#1f2024",
+  "icons": [
+    { "src": "assets/icons/pand192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "assets/icons/pand512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ]
+}
