@@ -14,7 +14,7 @@ import {
   tryHandlePendingText,
   handleLastCommand, handleStatsCommand,
 } from './meditation.ts'
-import { looksLikeTask, handleTaskFromMessage } from './tasks.ts'
+/* tasks.ts удалён — task-логика встроена в routeMessage через единый Claude-вызов. */
 
 const TG_API = 'https://api.telegram.org'
 const CLAUDE_API = 'https://api.anthropic.com/v1/messages'
@@ -128,69 +128,135 @@ async function googleAccessToken(admin: SupabaseClient, userId: string): Promise
   return data as string
 }
 
-interface ParsedEvent {
-  intent: 'create_event' | 'unknown'
-  confidence: number
+/* Универсальный Claude-router: один вызов классифицирует сообщение в одну
+ * из трёх категорий (task / event / chat) и одновременно даёт ответ в тоне
+ * Пандитджи. Tone — сжатая выжимка из docs/language-guide.md. */
+interface RoutedMessage {
+  intent: 'create_task' | 'create_event' | 'chat'
+  task?: { text: string; due_date: string; due_time: string | null }
   event?: { title: string; start_at_iso: string; end_at_iso: string; location?: string | null }
   reply: string
 }
 
-async function parseWithClaude(text: string, tz: string): Promise<ParsedEvent> {
-  const apiKey = Deno.env.get('ANTHROPIC_API_KEY')!
-  const now = new Date().toISOString()
-  const sysPrompt = `Ты парсер сообщений в Telegram-бот личного ассистента (русскоязычный пользователь).
-Текущий момент по UTC: ${now}
-Часовая зона пользователя: ${tz}
+function localDate(tz: string): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit',
+  }).format(new Date())
+}
 
-Твоя задача — определить, описывает ли сообщение создание встречи в календаре. Если да — извлечь:
-  - title (что за встреча)
-  - start_at_iso (ISO 8601 с offset для зоны пользователя, например "2026-05-14T15:00:00+03:00")
-  - end_at_iso (если длительность не указана — поставь +60 минут)
-  - location (если упомянуто, иначе null)
+async function routeMessage(text: string, tz: string, userShortName: string): Promise<RoutedMessage> {
+  const apiKey = Deno.env.get('ANTHROPIC_API_KEY')
+  if (!apiKey) {
+    return { intent: 'chat', reply: 'У меня сейчас выключен голос. Попробуй позже.' }
+  }
+  const today = localDate(tz)
+  const nowUtc = new Date().toISOString()
 
-Считай, что относительные даты ("завтра", "в пятницу", "через час") привязаны к текущему моменту в зоне пользователя.
+  const sysPrompt = `Ты Пандитджи — личный ассистент в Telegram-боте. Обращаешься к пользователю «${userShortName}». Получаешь сообщение по-русски и сам решаешь, что это: задача, встреча, или вопрос/диалог.
 
-Если сообщение не про создание встречи — intent="unknown".
+КОНТЕКСТ
+- Сегодняшняя локальная дата пользователя: ${today}
+- Часовая зона: ${tz}
+- Сейчас (UTC): ${nowUtc}
 
-Ответь СТРОГИМ JSON без markdown и без пояснений. Схема:
-{"intent": "create_event" | "unknown", "confidence": 0.0-1.0, "event"?: {...}, "reply": "короткий ответ пользователю по-русски в спокойном тоне"}`
+ОПРЕДЕЛЕНИЕ INTENT
+- "create_task" — пользователь хочет добавить дело: «купи молоко», «не забыть позвонить Антону», «напомни написать Ивану», «надо забрать билет». Без жёсткой привязки времени.
+- "create_event" — пользователь упоминает встречу с конкретным временем: «совещание в 4 завтра», «звонок с Антоном в пятницу 18:00», «встреча с Иваном в среду в 10».
+- "chat" — всё остальное: вопросы, размышления, приветствия, просьбы рассказать что-то. Сюда же — если непонятно или сомнение.
 
-  const resp = await fetch(CLAUDE_API, {
-    method: 'POST',
-    headers: {
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: CLAUDE_MODEL,
-      max_tokens: 512,
-      system: sysPrompt,
-      messages: [{ role: 'user', content: text }],
-    }),
-  })
+ИЗВЛЕЧЕНИЕ
+Если intent="create_task":
+  task.text — короткая суть (без слов-триггеров «задача», «напомни», «надо»)
+  task.due_date — YYYY-MM-DD (если не указано — сегодня)
+  task.due_time — HH:MM или null
+  Правила дат/времени:
+  - «завтра» → today+1; «послезавтра» → today+2
+  - «в понедельник/...» → ближайший такой день, если сегодня — следующая неделя
+  - «утром» 09:00, «днём» 14:00, «вечером» 18:00
+  - «в 10» → 10:00, «в 7 вечера» → 19:00
+
+Если intent="create_event":
+  event.title — название
+  event.start_at_iso — ISO 8601 с offset зоны пользователя (например 2026-05-16T15:00:00+03:00)
+  event.end_at_iso — если длительность не указана, +60 минут
+  event.location — если упомянуто, иначе null
+
+ОТВЕТ (reply)
+Это короткое подтверждение или ответ в чате. Голос Пандитджи:
+- Тёплый восточный друг, не учитель, не коуч. Тон Ходжи Насреддина у Соловьёва.
+- Краткость: 1-2 предложения по умолчанию. Длинные — только если повод весомый.
+- Можно обратиться «${userShortName}» или вообще без обращения.
+- Иногда «ибо» вместо «потому что» (не в каждом сообщении — раз в три-пять).
+- Иногда «не А, а Б» — мягкое противопоставление.
+- «Не печалься / не тревожься» — только когда есть реальный повод волноваться.
+- Десятичные через запятую: «12,5». Никаких эмодзи. Никаких восклицательных знаков. Никаких «achievement unlocked», streak-цифр как трофей, «работай над собой», «маленькие шаги ведут к большим». Никакого канцелярита («осуществить», «провести», «является», «данный»). Никаких калек с английского («обрати внимание», «дай себе время», «будь добр к себе»).
+- Для задачи: «Записал. Завтра в 10:00.» / «Хорошо. Сегодня к вечеру.»
+- Для встречи: «Запланировал на пятницу, 18:00.» / «Завтра в 4 — записал.»
+- Для chat: отвечай как умный пожилой друг за чаем. Если не знаешь — скажи «Не знаю». Если вопрос про данные пользователя (биометрика, джапа, календарь), которых у тебя нет в этом сообщении — скажи «Открой главную, там видно».
+
+ФОРМАТ ОТВЕТА
+Только JSON, без markdown, без пояснений. Схема:
+{"intent": "create_task" | "create_event" | "chat", "task"?: {...}, "event"?: {...}, "reply": "..."}`
+
+  let resp: Response
+  try {
+    resp = await fetch(CLAUDE_API, {
+      method: 'POST',
+      headers: {
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: CLAUDE_MODEL,
+        max_tokens: 700,
+        system: sysPrompt,
+        messages: [{ role: 'user', content: text }],
+      }),
+    })
+  } catch (e) {
+    console.error('claude fetch failed', e)
+    return { intent: 'chat', reply: 'Не дотянулся до сети. Попробуй ещё раз.' }
+  }
 
   if (!resp.ok) {
-    const body = await resp.text()
-    console.error('claude error', resp.status, body)
-    return { intent: 'unknown', confidence: 0, reply: 'Что-то у меня с головой. Попробуй ещё раз через минуту.' }
+    console.error('claude error', resp.status, await resp.text())
+    return { intent: 'chat', reply: 'Что-то у меня с головой. Попробуй ещё раз через минуту.' }
   }
 
   const data = await resp.json() as { content: Array<{ type: string; text: string }> }
-  const textBlock = data.content.find((b) => b.type === 'text')?.text ?? ''
-  /* Убираем возможные ```json ... ``` обёртки. */
-  const cleaned = textBlock.trim().replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, '').trim()
+  const block = data.content.find((b) => b.type === 'text')?.text ?? ''
+  const cleaned = block.trim().replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, '').trim()
+
   try {
-    return JSON.parse(cleaned) as ParsedEvent
-  } catch {
-    console.error('claude returned non-JSON', textBlock)
-    return { intent: 'unknown', confidence: 0, reply: 'Не разобрал. Попробуй сформулировать иначе.' }
+    const parsed = JSON.parse(cleaned) as RoutedMessage
+    if (!parsed.intent || !parsed.reply) throw new Error('missing fields')
+    /* Sanity-check intent-specific fields. */
+    if (parsed.intent === 'create_task') {
+      if (!parsed.task?.text || !/^\d{4}-\d{2}-\d{2}$/.test(parsed.task.due_date ?? '')) {
+        console.warn('task fields incomplete, falling back to chat', parsed.task)
+        return { intent: 'chat', reply: parsed.reply }
+      }
+      if (parsed.task.due_time && !/^\d{2}:\d{2}$/.test(parsed.task.due_time)) {
+        parsed.task.due_time = null
+      }
+    }
+    if (parsed.intent === 'create_event') {
+      if (!parsed.event?.title || !parsed.event.start_at_iso || !parsed.event.end_at_iso) {
+        console.warn('event fields incomplete, falling back to chat', parsed.event)
+        return { intent: 'chat', reply: parsed.reply }
+      }
+    }
+    return parsed
+  } catch (e) {
+    console.error('claude returned non-JSON', block, e)
+    return { intent: 'chat', reply: 'Не разобрал. Попробуй сформулировать иначе.' }
   }
 }
 
 async function createGoogleEvent(
   accessToken: string,
-  ev: NonNullable<ParsedEvent['event']>,
+  ev: { title: string; start_at_iso: string; end_at_iso: string; location?: string | null },
   tz: string,
 ): Promise<{ id: string; htmlLink?: string } | null> {
   const resp = await fetch(
@@ -364,49 +430,59 @@ Deno.serve(async (req) => {
     if (loc?.timezone) tz = loc.timezone
   }
 
-  /* Task branch — runs BEFORE calendar event parsing. Prefix-triggered: only fires
-   * when the message opens with «задача …», «поставь задачу …», «напомни …» etc.
-   * Otherwise we fall through to the calendar event parser. */
-  if (looksLikeTask(text)) {
-    await sendTyping(chatId)
-    await handleTaskFromMessage(admin, chatId, profile.id, tz, text, message.message_id)
+  /* Один Claude-вызов решает всё: задача, встреча, или свободный чат. */
+  await sendTyping(chatId)
+  const routed = await routeMessage(text, tz, profile.short_name)
+
+  if (routed.intent === 'create_task' && routed.task) {
+    const { error } = await admin.from('tasks').insert({
+      user_id: profile.id,
+      text: routed.task.text,
+      source: 'telegram',
+      status: 'open',
+      due_date: routed.task.due_date,
+      due_time: routed.task.due_time,
+      telegram_message_id: message.message_id ?? null,
+    })
+    if (error) {
+      console.error('tasks insert failed', error)
+      await sendTg(chatId, 'Не получилось сохранить задачу. Попробуй ещё раз.')
+      return ok()
+    }
+    await sendTg(chatId, routed.reply)
     return ok()
   }
 
-  const parsed = await parseWithClaude(text, tz)
-
-  if (parsed.intent !== 'create_event' || !parsed.event) {
-    await sendTg(chatId, parsed.reply || 'Пока умею только записывать встречи. Скажи когда и о чём.')
+  if (routed.intent === 'create_event' && routed.event) {
+    const accessToken = await googleAccessToken(admin, profile.id)
+    if (!accessToken) {
+      await sendTg(chatId, 'Google Calendar не подключён или сломан. Открой in.adrian.ru/morning.html и переподключи.')
+      return ok()
+    }
+    const created = await createGoogleEvent(accessToken, routed.event, tz)
+    if (!created) {
+      await sendTg(chatId, 'Не получилось положить в Google Calendar — посмотрю логи позже.')
+      return ok()
+    }
+    /* Зеркалим в нашу БД. */
+    await admin.from('calendar_events').upsert({
+      user_id: profile.id,
+      google_event_id: created.id,
+      google_calendar_id: 'primary',
+      title: routed.event.title,
+      location_text: routed.event.location ?? null,
+      start_at: routed.event.start_at_iso,
+      end_at: routed.event.end_at_iso,
+      is_all_day: false,
+      timezone: tz,
+      source: 'telegram_text',
+      last_synced_at: new Date().toISOString(),
+    }, { onConflict: 'google_event_id' })
+    await sendTg(chatId, routed.reply)
     return ok()
   }
 
-  const accessToken = await googleAccessToken(admin, profile.id)
-  if (!accessToken) {
-    await sendTg(chatId, 'Google Calendar не подключён или сломан. Открой in.adrian.ru/morning.html и переподключи.')
-    return ok()
-  }
-
-  const created = await createGoogleEvent(accessToken, parsed.event, tz)
-  if (!created) {
-    await sendTg(chatId, 'Не получилось положить в Google Calendar — посмотрю логи позже.')
-    return ok()
-  }
-
-  /* Зеркалим в нашу БД. */
-  await admin.from('calendar_events').upsert({
-    user_id: profile.id,
-    google_event_id: created.id,
-    google_calendar_id: 'primary',
-    title: parsed.event.title,
-    location_text: parsed.event.location ?? null,
-    start_at: parsed.event.start_at_iso,
-    end_at: parsed.event.end_at_iso,
-    is_all_day: false,
-    timezone: tz,
-    source: 'telegram_text',
-    last_synced_at: new Date().toISOString(),
-  }, { onConflict: 'google_event_id' })
-
-  await sendTg(chatId, parsed.reply || `Записал: ${parsed.event.title}.`)
+  /* Свободный чат — Claude уже сформулировал ответ в нужном тоне. */
+  await sendTg(chatId, routed.reply)
   return ok()
 })
