@@ -151,12 +151,18 @@ body {
   background: linear-gradient(90deg, transparent, color-mix(in oklch, var(--ink) 16%, transparent), transparent);
 }
 
+.brand-link {
+  display: inline-block;
+  flex: none;
+  line-height: 0;
+  transition: transform .12s ease, opacity .12s ease;
+}
+.brand-link:active { transform: scale(0.94); opacity: 0.85; }
 .brand-mark {
   width: 52px; height: 52px;
   border-radius: 50%;
   opacity: 0.95;
   filter: drop-shadow(0 4px 12px oklch(0.30 0.06 250 / 0.20));
-  flex: none;
   display: block;
 }
 
@@ -985,7 +991,9 @@ function renderHeader(h) {
         </span>
         ${vaishHTML}
       </div>
-      <img class="brand-mark" src="assets/panditji-logo.png" alt="Пандитджи"/>
+      <a class="brand-link" href="https://t.me/panditjiji_bot" target="_blank" rel="noopener" aria-label="Открыть бота в Telegram">
+        <img class="brand-mark" src="assets/panditji-logo.png" alt="Пандитджи"/>
+      </a>
       <div class="pm-right">
         <button class="pm-loc" type="button" id="loc-btn">${esc(h.location)}</button>
         ${tempHTML}
