@@ -723,10 +723,11 @@ a.extra-row:active { opacity: 0.7; }
 
 <div class="app">
   <div id="page-meta"></div>
-  <section id="card-japa"   class="hc hc--japa"   data-collapsed="true"></section>
-  <section id="card-health" class="hc hc--health" data-collapsed="true"></section>
-  <section id="card-tasks"  class="hc hc--tasks"  data-collapsed="true"></section>
-  <section id="card-cal"    class="hc hc--cal"    data-collapsed="true"></section>
+  <!-- Initial skeletons видны при парсинге HTML, до того как JS подгрузится. -->
+  <section id="card-japa"   class="hc hc--japa"   data-collapsed="true"><div class="hc-skeleton"></div></section>
+  <section id="card-health" class="hc hc--health" data-collapsed="true"><div class="hc-skeleton"></div></section>
+  <section id="card-tasks"  class="hc hc--tasks"  data-collapsed="true"><div class="hc-skeleton"></div></section>
+  <section id="card-cal"    class="hc hc--cal"    data-collapsed="true"><div class="hc-skeleton"></div></section>
 </div>
 
 <script type="module">
@@ -923,7 +924,17 @@ function setExpanded(key, value) {
  *  Кэшируем глобально, чтобы карточки могли использовать tz для todayISO/календаря.
  *  TODO: автоопределение по GPS + якоря, переключатель локаций в шапке (бриф).
  * ──────────────────────────────────────────────────────────────── */
-const PROFILE = { tz: 'Asia/Kolkata', locationName: 'Говардхан', temperature: null }
+/* Initial defaults берём из браузера — это TZ реального места пребывания.
+ * loadProfile() позже подгрузит name+tz из user_profile.current_location и при
+ * необходимости обновит шапку и tz карточек. */
+const PROFILE = {
+  tz: (() => {
+    try { return Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Moscow' }
+    catch { return 'Europe/Moscow' }
+  })(),
+  locationName: '…',
+  temperature: null,
+}
 
 async function loadProfile() {
   if (PREVIEW) return { tz: 'Asia/Kolkata', locationName: 'Говардхан' }
@@ -1793,34 +1804,34 @@ document.addEventListener('click', async (e) => {
 })
 
 /* ────────────────────────────────────────────────────────────────
- *  Boot
+ *  Boot — параллелим всё, чтобы первый рендер был мгновенный.
+ *  Скелетоны уже в HTML, видны сразу при парсинге. Шапка появляется
+ *  с дефолтами (TZ устройства), потом обновляется когда придёт profile/weather.
  * ──────────────────────────────────────────────────────────────── */
-
-/* Профиль грузим первым делом — от него зависит tz всех остальных запросов
- * и название локации в шапке. Это блокирующее, но запрос быстрый (~50ms). */
-const profile = await loadProfile()
-PROFILE.tz = profile.tz
-PROFILE.locationName = profile.locationName
 
 renderHeader(getHeaderData())
 
-/* Температура — фоном, без блокировки. Re-render шапки когда придёт. */
+/* Профиль — параллельно. Когда придёт, обновляем шапку и (если TZ
+ * отличается от браузерного) перезагружаем карточки tasks/calendar. */
+loadProfile().then(p => {
+  const tzChanged = p.tz !== PROFILE.tz
+  PROFILE.tz = p.tz
+  PROFILE.locationName = p.locationName
+  renderHeader(getHeaderData())
+  if (tzChanged) {
+    loadTasks().then(d => { cache.tasks = d; renderTasks(d) }).catch(() => {})
+    loadCalendar().then(d => { cache.cal = d; renderCalendar(d) }).catch(() => {})
+  }
+})
+
+/* Температура — фоном. */
 loadWeather().then(t => {
   if (t == null) return
   PROFILE.temperature = t
   renderHeader(getHeaderData())
 })
 
-/* Скелетоны (минималистичные) */
-const SKELETON = `<div class="hc-skeleton"></div>`
-document.getElementById('card-japa').innerHTML   = SKELETON
-document.getElementById('card-health').innerHTML = SKELETON
-document.getElementById('card-tasks').innerHTML  = SKELETON
-document.getElementById('card-cal').innerHTML    = SKELETON
-
-/* Параллельно с первой загрузкой карточки Здоровья — пробуем дёрнуть
- * whoop-fetch (если уже после 3 утра и сегодняшних данных в БД нет).
- * Если успешно — перезагружаем карточку. */
+/* Проактивный pull Whoop — если после 3 утра и за сегодня данных нет. */
 maybeRefreshWhoop().then(refreshed => {
   if (refreshed) loadHealth().then(d => { cache.health = d; renderHealth(d) })
 })
