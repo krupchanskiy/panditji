@@ -513,6 +513,19 @@ a.extra-row:active { opacity: 0.7; }
   color: var(--text-3); text-decoration: line-through;
   text-decoration-color: color-mix(in oklch, var(--text-3) 60%, transparent);
 }
+.task-delete {
+  flex: none; width: 28px; height: 28px;
+  display: grid; place-items: center;
+  background: transparent; border: 0; padding: 0;
+  cursor: pointer;
+  color: var(--text-4);
+  opacity: 0.6;
+  border-radius: 50%;
+  transition: opacity .12s ease, color .12s ease, background .12s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+.task-delete:hover { opacity: 1; color: var(--neg-deep); background: color-mix(in oklch, var(--neg) 8%, transparent); }
+.task-delete:active { transform: scale(0.92); }
 .task-time { font-size: 12.33px; color: var(--text-3); margin-top: 2px; }
 .task-row--tail {
   padding-left: 10px;
@@ -901,6 +914,7 @@ const ICONS = {
   sync: '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 01-15.5 6.3L3 16M3 12a9 9 0 0115.5-6.3L21 8"/></svg>',
   checkMark: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5L20 7"/></svg>',
   bigCheck: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5L20 7"/></svg>',
+  cross: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M6 18L18 6"/></svg>',
 }
 
 /* ────────────────────────────────────────────────────────────────
@@ -1480,6 +1494,7 @@ function renderTasks(data) {
               <div>${esc(t.text)}</div>
               ${t.time ? `<div class="task-time num">в ${esc(t.time)}</div>` : ''}
             </div>
+            ${t.done ? `<button class="task-delete" type="button" data-delete-task="${esc(t.id)}" data-no-toggle="1" aria-label="Удалить">${ICONS.cross}</button>` : ''}
           </div>`).join('')}
         ${!exp && moreCount > 0 ? `<button class="task-more-btn" type="button" data-no-toggle="1" id="tasks-more-btn">Ещё ${moreCount} →</button>` : ''}
       </div>`
@@ -1529,6 +1544,21 @@ async function createTaskInline(text) {
   if (error) throw error
 }
 
+/* Полное удаление задачи. У done-задач справа есть крестик, чтобы убрать
+ * выполненное с глаз — иначе зачёркнутые накапливаются. */
+async function deleteTask(id) {
+  if (PREVIEW) {
+    const t = cache.tasks.todays.find(x => x.id === id)
+    if (!t) return
+    cache.tasks.todays = cache.tasks.todays.filter(x => x.id !== id)
+    cache.tasks.counters.today--
+    if (t.done) cache.tasks.counters.done--
+    return
+  }
+  const { error } = await db.from('tasks').delete().eq('id', id)
+  if (error) throw error
+}
+
 /* Toggle done. status: open ↔ done, completed_at соответственно. */
 async function toggleTaskDone(id) {
   if (PREVIEW) {
@@ -1563,63 +1593,90 @@ async function toggleTaskDone(id) {
 async function loadCalendar() {
   if (PREVIEW) return MOCK.calendar
   const tz = PROFILE.tz
-  const todayStart = new Date()
-  const dayAfter = new Date(todayStart.getTime() + 48 * 3600 * 1000)
+  const today = todayISO(tz)
+  const horizon = new Date(Date.now() + 14 * 24 * 3600 * 1000) // 2 недели — на всякий
 
   const { data, error } = await db
     .from('calendar_events')
     .select('id, title, description, start_at, end_at, google_calendar_id, is_all_day, deleted_at')
     .is('deleted_at', null)
-    .gte('start_at', todayStart.toISOString())
-    .lt('start_at', dayAfter.toISOString())
+    .gte('start_at', new Date(Date.now() - 12 * 3600 * 1000).toISOString())
+    .lt('start_at', horizon.toISOString())
     .order('start_at', { ascending: true })
 
   if (error) {
     console.warn('calendar load failed', error)
-    return { state: 'empty_today', todayRest: [], tomorrow: [] }
+    return { state: 'empty', todayRest: [], groups: [] }
   }
 
-  const today = todayISO(tz)
-  const todayRest = [], tomorrow = []
   const now = Date.now()
   /* Регэксп выдёргивает meet/zoom-ссылку из описания события — отдельного поля нет. */
   const MEET_RE = /(https?:\/\/(?:meet\.google\.com|[a-z0-9-]+\.zoom\.us|us\d+\.zoom\.us|teams\.live\.com|teams\.microsoft\.com)\/[^\s<>"']+)/i
 
+  const all = []
   for (const ev of data || []) {
     if (ev.is_all_day) continue
     const start = new Date(ev.start_at)
     const end = ev.end_at ? new Date(ev.end_at) : new Date(start.getTime() + 30 * 60000)
+    if (end.getTime() <= now) continue // прошедшие пропускаем
     const day = new Intl.DateTimeFormat('en-CA', { timeZone: tz }).format(start)
     const time = new Intl.DateTimeFormat('ru-RU', { timeZone: tz, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(start)
     const durMin = Math.max(1, Math.round((end - start) / 60000))
     const linkMatch = ev.description ? ev.description.match(MEET_RE) : null
     const hasLink = !!linkMatch
-    /* Workspace календарь Адриана — adrian.ru-домен. Эвристика, можно уточнить через category. */
     const isWork = /adrian\.ru/i.test(ev.google_calendar_id || '')
     const startMs = start.getTime()
     const minutesUntil = (startMs - now) / 60000
-    const event = {
-      id: ev.id, time, title: ev.title || '(без названия)', durationMin: durMin,
+    all.push({
+      id: ev.id, day, time, title: ev.title || '(без названия)', durationMin: durMin,
       hasLink, isWork, startMs, minutesUntil, joinUrl: linkMatch ? linkMatch[1] : null,
-    }
-    if (day === today) {
-      if (end.getTime() > now) todayRest.push(event)
-    } else {
-      tomorrow.push(event)
-    }
+    })
   }
 
-  if (todayRest.length === 0 && tomorrow.length === 0) {
-    return { state: 'empty_today', todayRest, tomorrow }
-  }
-  if (todayRest.length === 0) {
-    return { state: 'no_more_today', todayRest, tomorrow }
+  const todayRest = all.filter(e => e.day === today)
+
+  if (todayRest.length > 0) {
+    /* Сегодня есть события — показываем hero + все сегодняшние. */
+    const next = todayRest[0]
+    next.in = humanIn(next.minutesUntil)
+    next.joinable = next.hasLink && next.minutesUntil >= 0 && next.minutesUntil <= 10
+    return { state: 'next_event', next, todayRest, groups: [] }
   }
 
-  const next = todayRest[0]
-  next.in = humanIn(next.minutesUntil)
-  next.joinable = next.hasLink && next.minutesUntil >= 0 && next.minutesUntil <= 10
-  return { state: 'next_event', next, todayRest, tomorrow }
+  /* Сегодня пусто — берём 3 ближайшие встречи и группируем по дням. */
+  const upcoming = all.slice(0, 3)
+  if (upcoming.length === 0) {
+    return { state: 'empty', todayRest: [], groups: [] }
+  }
+  const groups = []
+  for (const ev of upcoming) {
+    let g = groups.find(x => x.day === ev.day)
+    if (!g) {
+      g = { day: ev.day, label: dayLabel(today, ev.day, tz), events: [] }
+      groups.push(g)
+    }
+    g.events.push(ev)
+  }
+  return { state: 'no_more_today', todayRest: [], groups }
+}
+
+/* Лейбл дня относительно сегодня:
+ *   +1 → «Завтра», +2 → «Послезавтра», +3..+6 → день недели, +7+ → «18 мая». */
+function dayLabel(todayISOStr, dayISOStr, tz) {
+  const a = new Date(todayISOStr + 'T00:00:00Z')
+  const b = new Date(dayISOStr + 'T00:00:00Z')
+  const diff = Math.round((b.getTime() - a.getTime()) / 86400000)
+  if (diff === 0) return 'Сегодня'
+  if (diff === 1) return 'Завтра'
+  if (diff === 2) return 'Послезавтра'
+  if (diff >= 3 && diff <= 6) {
+    const wd = new Intl.DateTimeFormat('ru-RU', { timeZone: tz, weekday: 'long' }).format(b)
+    return wd.charAt(0).toUpperCase() + wd.slice(1)
+  }
+  const day = Number(new Intl.DateTimeFormat('en-CA', { timeZone: tz, day: 'numeric' }).format(b))
+  const monthIdx = Number(new Intl.DateTimeFormat('en-CA', { timeZone: tz, month: 'numeric' }).format(b)) - 1
+  const months = ['января','февраля','марта','апреля','мая','июня','июля','августа','сентября','октября','ноября','декабря']
+  return `${day} ${months[monthIdx]}`
 }
 
 function humanIn(minutes) {
@@ -1629,25 +1686,38 @@ function humanIn(minutes) {
   return m ? `${h}ч ${m}м` : `${h}ч`
 }
 
+/* Русское склонение: plural(1,'a','b','c') = a, plural(2..4)='b', остальные='c'. */
+function plural(n, one, few, many) {
+  const mod10 = n % 10, mod100 = n % 100
+  if (mod10 === 1 && mod100 !== 11) return one
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 10 || mod100 >= 20)) return few
+  return many
+}
+
 function renderCalendar(data) {
   const root = document.getElementById('card-cal')
   const exp = expanded.cal
   root.setAttribute('data-collapsed', exp ? 'false' : 'true')
 
-  const { state, next, todayRest, tomorrow } = data
+  const { state, next, todayRest, groups } = data
 
   let metaHTML = ''
-  if (state === 'next_event') metaHTML = `<span class="hc-head-meta">${todayRest.length} событий</span>`
-  else if (state === 'no_more_today') metaHTML = `<span class="hc-head-meta">${tomorrow.length} завтра</span>`
+  if (state === 'next_event') metaHTML = `<span class="hc-head-meta">${todayRest.length} ${plural(todayRest.length, 'событие','события','событий')}</span>`
+  else if (state === 'no_more_today') {
+    const total = (groups || []).reduce((s, g) => s + g.events.length, 0)
+    metaHTML = `<span class="hc-head-meta">ближайшие ${total}</span>`
+  }
   else metaHTML = `<span class="hc-head-meta">пусто</span>`
 
   let bodyHTML = ''
-  if (state === 'empty_today') {
-    bodyHTML = `<div class="sparse-note">На сегодня пусто.</div>`
+  if (state === 'empty') {
+    bodyHTML = `<div class="sparse-note">Ближайших встреч нет.</div>`
   } else if (state === 'no_more_today') {
+    /* Сегодня прошло — показываем ближайшие группированные по дням. */
     bodyHTML = `
       <div class="sparse-note">Сегодня встреч больше нет.</div>
-      ${exp ? timelineHTML('Завтра', tomorrow, null) : ''}
+      ${(groups || []).map(g => timelineHTML(g.label, g.events, null)).join('')}
+      ${exp ? `<div class="hc-actions hc-actions--end"><a class="act-btn act-btn--ghost" href="/calendar.html">Открыть календарь →</a></div>` : ''}
     `
   } else if (state === 'next_event' && next) {
     const joinHTML = next.joinable && next.joinUrl
@@ -1672,7 +1742,6 @@ function renderCalendar(data) {
       ${exp && todayRest.length > 1 ? `
         <div class="hc-divider"></div>
         ${timelineHTML('Осталось сегодня', todayRest, next.time)}` : ''}
-      ${exp && tomorrow.length ? timelineHTML('Завтра', tomorrow, null) : ''}
       ${exp ? `<div class="hc-actions hc-actions--end"><a class="act-btn act-btn--ghost" href="/calendar.html">Открыть календарь →</a></div>` : ''}
     `
   }
@@ -1766,6 +1835,22 @@ document.addEventListener('click', async (e) => {
   } catch (err) {
     console.error(err)
     cb.disabled = false
+  }
+})
+
+/* Удаление задачи (крестик у done-задач). */
+document.addEventListener('click', async (e) => {
+  const btn = e.target.closest('[data-delete-task]')
+  if (!btn) return
+  const id = btn.getAttribute('data-delete-task')
+  btn.disabled = true
+  try {
+    await deleteTask(id)
+    if (!PREVIEW) cache.tasks = await loadTasks()
+    renderTasks(cache.tasks)
+  } catch (err) {
+    console.error(err)
+    btn.disabled = false
   }
 })
 
