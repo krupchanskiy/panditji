@@ -1164,7 +1164,10 @@ const WHOOP_THROTTLE_MS = 60 * 1000
 
 async function maybeRefreshWhoop() {
   if (PREVIEW) return false
-  const tz = PROFILE.tz
+  /* Берём TZ устройства, а не PROFILE.tz: пользователь может физически быть
+   * не в той локации, что стоит в user_profile.current_location_id
+   * (автоопределения локации пока нет — пометили TODO). */
+  const tz = Intl.DateTimeFormat().resolvedOptions().timeZone
   const now = new Date()
   const localHour = Number(new Intl.DateTimeFormat('en-US', {
     timeZone: tz, hour: 'numeric', hourCycle: 'h23',
