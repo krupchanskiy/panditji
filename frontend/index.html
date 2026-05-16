@@ -1369,7 +1369,7 @@ async function loadTasks() {
 
   if (error) throw error
 
-  const todays = [], overdue = [], doneToday = []
+  const open = [], doneList = [], overdue = []
   for (const t of data || []) {
     const done = t.status === 'done'
     const isToday = t.due_date === today
@@ -1380,17 +1380,19 @@ async function loadTasks() {
       continue
     }
     if (isToday) {
-      if (done) doneToday.push({ id: t.id, text: t.text })
-      else todays.push({ id: t.id, text: t.text, time: t.due_time?.slice(0, 5) || null, done: false })
+      const row = { id: t.id, text: t.text, time: t.due_time?.slice(0, 5) || null, done, completedAt: t.completed_at }
+      if (done) doneList.push(row)
+      else open.push(row)
     }
   }
+  /* Сначала открытые, затем выполненные (свежевыполненные внизу — по completed_at desc). */
+  doneList.sort((a, b) => (b.completedAt || '').localeCompare(a.completedAt || ''))
+  const todays = [...open, ...doneList]
 
-  const counters = { today: todays.length + doneToday.length, overdue: overdue.length, done: doneToday.length }
-  let state = 'normal'
-  if (counters.today === 0 && overdue.length === 0) state = 'empty'
-  else if (todays.length === 0 && doneToday.length > 0 && overdue.length === 0) state = 'done'
+  const counters = { today: todays.length, overdue: overdue.length, done: doneList.length }
+  const state = (todays.length === 0 && overdue.length === 0) ? 'empty' : 'normal'
 
-  return { state, counters, todays, overdue, doneToday, streak: null /* TODO */ }
+  return { state, counters, todays, overdue, streak: null /* TODO */ }
 }
 
 function sinceText(dueISO, todayISO) {
@@ -1406,7 +1408,7 @@ function renderTasks(data) {
   const exp = expanded.tasks
   root.setAttribute('data-collapsed', exp ? 'false' : 'true')
 
-  const { state, counters, todays, overdue, doneToday, streak } = data
+  const { state, counters, todays, overdue, streak } = data
 
   let metaHTML = ''
   if (counters) {
@@ -1424,20 +1426,6 @@ function renderTasks(data) {
       <div class="empty-block">
         <div class="sparse-note">На сегодня задач нет.</div>
         ${exp ? addInputHTML() : ''}
-      </div>`
-  } else if (state === 'done') {
-    bodyHTML = `
-      <div class="empty-block">
-        <div class="all-done-mark">${ICONS.bigCheck}</div>
-        <div class="sparse-note">Все задачи на сегодня сделаны.</div>
-        ${streak ? `<div class="streak-line">${esc(streak)}</div>` : ''}
-        ${doneToday?.length ? `
-          <div class="done-collapsed">
-            <span class="done-eyebrow">Сделано · <span class="num">${doneToday.length}</span></span>
-            <ul class="done-list">
-              ${doneToday.map(d => `<li class="done-item"><span class="check-mini"></span>${esc(d.text)}</li>`).join('')}
-            </ul>
-          </div>` : ''}
       </div>`
   } else {
     const overdueHTML = exp && overdue?.length ? `
@@ -1523,7 +1511,14 @@ async function toggleTaskDone(id) {
     const t = cache.tasks.todays.find(x => x.id === id)
     if (t) {
       t.done = !t.done
+      t.completedAt = t.done ? new Date().toISOString() : null
       cache.tasks.counters.done += t.done ? 1 : -1
+      /* Пересортируем — open сверху, done снизу (свежевыполненные первые). */
+      cache.tasks.todays.sort((a, b) => {
+        if (a.done !== b.done) return Number(a.done) - Number(b.done)
+        if (a.done) return (b.completedAt || '').localeCompare(a.completedAt || '')
+        return 0
+      })
     }
     return
   }
