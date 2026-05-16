@@ -11,6 +11,9 @@
 <meta name="theme-color" content="#f4f3f5">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://intcymsjpbkyrflfcwzf.supabase.co">
+<link rel="dns-prefetch" href="https://intcymsjpbkyrflfcwzf.supabase.co">
+<link rel="preconnect" href="https://esm.sh">
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=EB+Garamond:ital,wght@0,400;0,500;1,400;1,500&display=swap" rel="stylesheet">
 
 <style>
@@ -713,11 +716,25 @@ a.extra-row:active { opacity: 0.7; }
 }
 .ev-cam { color: var(--gold-deep); opacity: 0.65; display: inline-flex; }
 
-/* Загрузка */
+/* Загрузка — мягкий shimmer, чтобы было видно «идёт процесс».
+ * Не пульсация (бриф запрещает), а медленный slide светлой полосы. */
 .hc-skeleton {
   height: 92px;
-  background: linear-gradient(90deg, rgba(255,255,255,0.4), rgba(255,255,255,0.65), rgba(255,255,255,0.4));
+  background-image: linear-gradient(90deg,
+    color-mix(in oklch, var(--ink) 4%,  transparent) 0%,
+    color-mix(in oklch, var(--ink) 10%, transparent) 50%,
+    color-mix(in oklch, var(--ink) 4%,  transparent) 100%);
+  background-size: 200% 100%;
+  animation: hc-shimmer 1.6s ease-in-out infinite;
   border-radius: 12px;
+  opacity: 0.55;
+}
+@keyframes hc-shimmer {
+  0%   { background-position:  120% 0; }
+  100% { background-position: -120% 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hc-skeleton { animation: none; }
 }
 .hc-error { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .hc-error-msg { font-family: 'EB Garamond', Georgia, serif; font-style: italic; color: var(--text-2); font-size: 15.33px; }
@@ -920,6 +937,30 @@ const ICONS = {
   checkMark: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5L20 7"/></svg>',
   bigCheck: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5L20 7"/></svg>',
   cross: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M6 18L18 6"/></svg>',
+}
+
+/* ────────────────────────────────────────────────────────────────
+ *  Stale-while-revalidate кэш в localStorage
+ *  При повторных загрузках страница рендерит данные прошлой сессии
+ *  мгновенно, параллельно идут свежие запросы — когда придут, перерендер.
+ *  Первая загрузка после очистки кэша всё ещё показывает скелетоны.
+ * ──────────────────────────────────────────────────────────────── */
+const SWR_KEYS = {
+  profile: 'pj:swr:profile',
+  weather: 'pj:swr:weather',
+  japa:    'pj:swr:japa',
+  health:  'pj:swr:health',
+  tasks:   'pj:swr:tasks',
+  cal:     'pj:swr:cal',
+}
+function swrRead(key) {
+  try {
+    const raw = localStorage.getItem(SWR_KEYS[key])
+    return raw ? JSON.parse(raw) : null
+  } catch { return null }
+}
+function swrWrite(key, data) {
+  try { localStorage.setItem(SWR_KEYS[key], JSON.stringify(data)) } catch {}
 }
 
 /* ────────────────────────────────────────────────────────────────
@@ -1880,23 +1921,36 @@ document.addEventListener('click', async (e) => {
 })
 
 /* ────────────────────────────────────────────────────────────────
- *  Boot — параллелим всё, чтобы первый рендер был мгновенный.
- *  Скелетоны уже в HTML, видны сразу при парсинге. Шапка появляется
- *  с дефолтами (TZ устройства), потом обновляется когда придёт profile/weather.
+ *  Boot — параллелим всё + stale-while-revalidate.
+ *  При повторной загрузке кэш из localStorage рендерится мгновенно,
+ *  параллельно живые запросы заменят данные когда придут.
  * ──────────────────────────────────────────────────────────────── */
+
+/* SWR: показываем последние известные данные мгновенно. */
+if (!PREVIEW) {
+  const cP = swrRead('profile')
+  if (cP) { PROFILE.tz = cP.tz; PROFILE.locationName = cP.locationName }
+  const cW = swrRead('weather')
+  if (typeof cW === 'number') PROFILE.temperature = cW
+  const cJ = swrRead('japa');   if (cJ) { cache.japa   = cJ; renderJapa(cJ) }
+  const cH = swrRead('health'); if (cH) { cache.health = cH; renderHealth(cH) }
+  const cT = swrRead('tasks');  if (cT) { cache.tasks  = cT; renderTasks(cT) }
+  const cC = swrRead('cal');    if (cC) { cache.cal    = cC; renderCalendar(cC) }
+}
 
 renderHeader(getHeaderData())
 
 /* Профиль — параллельно. Когда придёт, обновляем шапку и (если TZ
- * отличается от браузерного) перезагружаем карточки tasks/calendar. */
+ * отличается) перезагружаем карточки tasks/calendar. */
 loadProfile().then(p => {
   const tzChanged = p.tz !== PROFILE.tz
   PROFILE.tz = p.tz
   PROFILE.locationName = p.locationName
+  swrWrite('profile', p)
   renderHeader(getHeaderData())
   if (tzChanged) {
-    loadTasks().then(d => { cache.tasks = d; renderTasks(d) }).catch(() => {})
-    loadCalendar().then(d => { cache.cal = d; renderCalendar(d) }).catch(() => {})
+    loadTasks().then(d => { cache.tasks = d; swrWrite('tasks', d); renderTasks(d) }).catch(() => {})
+    loadCalendar().then(d => { cache.cal = d; swrWrite('cal', d); renderCalendar(d) }).catch(() => {})
   }
 })
 
@@ -1904,24 +1958,25 @@ loadProfile().then(p => {
 loadWeather().then(t => {
   if (t == null) return
   PROFILE.temperature = t
+  swrWrite('weather', t)
   renderHeader(getHeaderData())
 })
 
 /* Проактивный pull Whoop — если после 3 утра и за сегодня данных нет. */
 maybeRefreshWhoop().then(refreshed => {
-  if (refreshed) loadHealth().then(d => { cache.health = d; renderHealth(d) })
+  if (refreshed) loadHealth().then(d => { cache.health = d; swrWrite('health', d); renderHealth(d) })
 })
 
 Promise.allSettled([
-  loadJapa().then(d => { cache.japa = d; renderJapa(d) }),
-  loadHealth().then(d => { cache.health = d; renderHealth(d) }),
-  loadTasks().then(d => { cache.tasks = d; renderTasks(d) })
+  loadJapa().then(d => { cache.japa = d; swrWrite('japa', d); renderJapa(d) }),
+  loadHealth().then(d => { cache.health = d; swrWrite('health', d); renderHealth(d) }),
+  loadTasks().then(d => { cache.tasks = d; swrWrite('tasks', d); renderTasks(d) })
     .catch(err => {
       console.error('tasks load failed', err)
       cache.tasks = { state: 'empty', counters: null, todays: [], overdue: [], doneToday: [] }
       renderTasks(cache.tasks)
     }),
-  loadCalendar().then(d => { cache.cal = d; renderCalendar(d) }),
+  loadCalendar().then(d => { cache.cal = d; swrWrite('cal', d); renderCalendar(d) }),
 ])
 
 </script>
