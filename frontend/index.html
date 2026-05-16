@@ -1015,6 +1015,19 @@ async function loadProfile() {
   return { tz: 'Asia/Kolkata', locationName: 'Говардхан' }
 }
 
+/* Объединённый запрос profile + weather + health за один round-trip. */
+async function loadHomeBundle() {
+  if (PREVIEW) return null
+  try {
+    const { data, error } = await db.functions.invoke('get-home-bundle')
+    if (error) throw error
+    return data
+  } catch (e) {
+    console.warn('home-bundle load failed', e)
+    return null
+  }
+}
+
 /* ────────────────────────────────────────────────────────────────
  *  Шапка
  *  TODO: vaishnava — из vaishnava_calendar по сегодняшней дате;
@@ -1940,36 +1953,51 @@ if (!PREVIEW) {
 
 renderHeader(getHeaderData())
 
-/* Профиль — параллельно. Когда придёт, обновляем шапку и (если TZ
- * отличается) перезагружаем карточки tasks/calendar. */
-loadProfile().then(p => {
-  const tzChanged = p.tz !== PROFILE.tz
-  PROFILE.tz = p.tz
-  PROFILE.locationName = p.locationName
-  swrWrite('profile', p)
+/* Bundle: profile + weather + health одним вызовом. Когда придёт, обновляем
+ * всё сразу. Если TZ изменился — перезагружаем tasks/calendar (они от него зависят).
+ * В PREVIEW режиме bundle = null, используем mock через loadHealth напрямую. */
+if (PREVIEW) {
+  loadHealth().then(d => { cache.health = d; renderHealth(d) })
+}
+const bundlePromise = loadHomeBundle()
+bundlePromise.then(b => {
+  if (!b) return
+  let tzChanged = false
+  if (b.profile?.tz) {
+    tzChanged = b.profile.tz !== PROFILE.tz
+    PROFILE.tz = b.profile.tz
+    PROFILE.locationName = b.profile.locationName || PROFILE.locationName
+    swrWrite('profile', b.profile)
+  }
+  if (b.weather && typeof b.weather.temperature_c === 'number') {
+    PROFILE.temperature = Math.round(b.weather.temperature_c)
+    swrWrite('weather', PROFILE.temperature)
+  }
   renderHeader(getHeaderData())
+  if (b.health) {
+    cache.health = b.health
+    swrWrite('health', b.health)
+    renderHealth(b.health)
+  }
   if (tzChanged) {
     loadTasks().then(d => { cache.tasks = d; swrWrite('tasks', d); renderTasks(d) }).catch(() => {})
     loadCalendar().then(d => { cache.cal = d; swrWrite('cal', d); renderCalendar(d) }).catch(() => {})
   }
 })
 
-/* Температура — фоном. */
-loadWeather().then(t => {
-  if (t == null) return
-  PROFILE.temperature = t
-  swrWrite('weather', t)
-  renderHeader(getHeaderData())
-})
-
-/* Проактивный pull Whoop — если после 3 утра и за сегодня данных нет. */
+/* Проактивный pull Whoop — если после 3 утра и за сегодня данных нет.
+ * После успеха перезапросим bundle (профиль/погода кэшируются на сервере). */
 maybeRefreshWhoop().then(refreshed => {
-  if (refreshed) loadHealth().then(d => { cache.health = d; swrWrite('health', d); renderHealth(d) })
+  if (refreshed) loadHomeBundle().then(b => {
+    if (!b?.health) return
+    cache.health = b.health
+    swrWrite('health', b.health)
+    renderHealth(b.health)
+  })
 })
 
 Promise.allSettled([
   loadJapa().then(d => { cache.japa = d; swrWrite('japa', d); renderJapa(d) }),
-  loadHealth().then(d => { cache.health = d; swrWrite('health', d); renderHealth(d) }),
   loadTasks().then(d => { cache.tasks = d; swrWrite('tasks', d); renderTasks(d) })
     .catch(err => {
       console.error('tasks load failed', err)
