@@ -390,6 +390,18 @@ body {
   gap: 5px; min-width: 0;
   padding-right: 4px;
 }
+a.hr-cell, a.hr-cell--link {
+  text-decoration: none; color: inherit;
+  cursor: pointer;
+  transition: opacity .12s ease;
+}
+a.hr-cell:active { opacity: 0.7; }
+a.extra-row {
+  text-decoration: none; color: inherit;
+  cursor: pointer;
+  transition: opacity .12s ease;
+}
+a.extra-row:active { opacity: 0.7; }
 .hr-row-top { display: flex; align-items: center; gap: 8px; width: 100%; }
 .hr-ring-wrap { position: relative; width: 38px; height: 38px; flex: none; }
 .hr-ring-baseline {
@@ -1233,6 +1245,7 @@ function renderHealth(data) {
           valueHTML: `${fmt.num(rec.today)}<span class="hr-num-unit">%</span>`,
           base: rec.baseline != null ? `ср ${fmt.num(rec.baseline)}%` : null,
           delta: rec.delta != null ? { text: fmt.signed(rec.delta, { suffix: ' п.' }), tone: deltaTone(rec.delta, rec.baseline) } : null,
+          href: '/metric.html?type=recovery',
         })}
         ${healthRingHTML({
           label: 'Сон',
@@ -1243,6 +1256,7 @@ function renderHealth(data) {
           delta: sl.deltaSec != null && sl.baseline
             ? { text: fmt.signedMS(sl.deltaSec), tone: deltaTone(sl.deltaSec, (sl.baseline.h * 60 + sl.baseline.m) * 60) }
             : null,
+          href: '/metric.html?type=sleep',
         })}
         ${healthRingHTML({
           label: 'Strain',
@@ -1251,6 +1265,7 @@ function renderHealth(data) {
           valueHTML: fmt.num(st.today, 1),
           base: st.baseline != null ? `ср ${fmt.num(st.baseline, 1)}` : null,
           delta: st.delta != null ? { text: fmt.signed(st.delta, { decimals: 1 }), tone: 'neutral' } : null,
+          /* detail-страницы для strain нет — оставляем без href */
         })}
       </div>
       ${state === 'no_baseline' ? `<div class="sparse-note">Сравнение появится после 5 ночей. Сейчас в базе: ${esc(nightsCollected || 0)}.</div>` : ''}
@@ -1269,6 +1284,7 @@ function renderHealth(data) {
             today: `<span class="num">${extra.hrv.today}</span><span class="extra-unit">мс</span>`,
             base:  `ср.30д <span class="num">${extra.hrv.baseline}</span>`,
             delta: { text: fmt.signed(extra.hrv.delta), tone: deltaTone(extra.hrv.delta, extra.hrv.baseline) },
+            href: '/metric.html?type=hrv',
           })}
           ${extra.bp ? extraRowHTML({
             label: 'Давление',
@@ -1296,13 +1312,15 @@ function renderHealth(data) {
   `
 }
 
-function healthRingHTML({ label, tone, pct, basePct, valueHTML, base, delta }) {
+function healthRingHTML({ label, tone, pct, basePct, valueHTML, base, delta, href }) {
   const p = Math.max(0, Math.min(100, pct || 0))
   const baselineRing = basePct != null
     ? `<div class="hr-ring-baseline" style="--bp:${Math.max(0, Math.min(100, basePct))}" aria-hidden="true"></div>`
     : ''
+  const tag = href ? 'a' : 'div'
+  const attrs = href ? ` href="${esc(href)}" data-no-toggle="1"` : ''
   return `
-    <div class="hr-cell">
+    <${tag} class="hr-cell${href ? ' hr-cell--link' : ''}"${attrs}>
       <div class="hr-row-top">
         <div class="hr-ring-wrap">
           <div class="hr-ring hr-ring--${esc(tone)}" style="--p:${p}" aria-hidden="true"></div>
@@ -1313,19 +1331,21 @@ function healthRingHTML({ label, tone, pct, basePct, valueHTML, base, delta }) {
       <div class="hr-label">${esc(label)}</div>
       ${base ? `<div class="hr-base">${base}</div>` : ''}
       ${delta ? `<div class="hr-delta"><span class="delta delta--${esc(delta.tone)}">${esc(delta.text)}</span></div>` : ''}
-    </div>`
+    </${tag}>`
 }
 
-function extraRowHTML({ label, today, base, delta }) {
+function extraRowHTML({ label, today, base, delta, href }) {
+  const tag = href ? 'a' : 'div'
+  const attrs = href ? ` href="${esc(href)}" data-no-toggle="1"` : ''
   return `
-    <div class="extra-row">
+    <${tag} class="extra-row${href ? ' extra-row--link' : ''}"${attrs}>
       <div class="extra-label">${esc(label)}</div>
       <div class="extra-today">${today}</div>
       <div class="extra-base">${base}</div>
       <div class="extra-delta">${delta
         ? `<span class="delta delta--${esc(delta.tone)}">${esc(delta.text)}</span>`
         : '<span class="m-delta-empty">·</span>'}</div>
-    </div>`
+    </${tag}>`
 }
 
 /* ────────────────────────────────────────────────────────────────
