@@ -155,15 +155,20 @@ body {
   display: inline-block;
   flex: none;
   line-height: 0;
+  cursor: pointer;
+  border-radius: 50%;
   transition: transform .12s ease, opacity .12s ease;
+  -webkit-tap-highlight-color: transparent;
 }
-.brand-link:active { transform: scale(0.94); opacity: 0.85; }
+.brand-link:hover { opacity: 0.85; }
+.brand-link:active { transform: scale(0.94); opacity: 0.7; }
 .brand-mark {
   width: 52px; height: 52px;
   border-radius: 50%;
   opacity: 0.95;
   filter: drop-shadow(0 4px 12px oklch(0.30 0.06 250 / 0.20));
   display: block;
+  pointer-events: none;
 }
 
 /* ============ КАРТОЧКА .hc ============ */
