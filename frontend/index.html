@@ -760,25 +760,49 @@ a.extra-row:active { opacity: 0.7; }
   </defs>
 </svg>
 
-<!-- Визуальный лог JS-ошибок — для диагностики на мобильном без DevTools.
-     Закрывается тапом по баннеру. -->
+<!-- Визуальный лог JS-ошибок и предупреждений — для диагностики на мобильном
+     без DevTools. Каждый баннер закрывается тапом. -->
 <script>
 (function(){
+  function stringify(arg) {
+    if (arg == null) return String(arg)
+    if (typeof arg === 'string') return arg
+    if (arg instanceof Error) return arg.message
+    try { return JSON.stringify(arg) } catch { return String(arg) }
+  }
   function banner(msg, kind) {
     var el = document.createElement('div')
     el.style.cssText = 'position:fixed;top:' + (document.querySelectorAll('.js-err-banner').length * 56) + 'px;left:0;right:0;z-index:9999;padding:10px 14px;background:' + (kind==='warn'?'#a76':'#c44') + ';color:white;font:12px/1.4 -apple-system,system-ui,sans-serif;cursor:pointer;'
     el.className = 'js-err-banner'
     el.textContent = msg
     el.onclick = function(){ el.remove() }
-    document.body && document.body.appendChild(el)
+    if (document.body) document.body.appendChild(el)
+    else document.addEventListener('DOMContentLoaded', function(){ document.body.appendChild(el) })
   }
+  /* Любая необработанная JS-ошибка. */
   window.addEventListener('error', function(e){
     banner('JS: ' + (e.message||'?') + ' @ ' + (e.filename||'').split('/').pop() + ':' + e.lineno, 'error')
   })
+  /* Reject Promise без catch. */
   window.addEventListener('unhandledrejection', function(e){
     var r = e.reason
     banner('Promise: ' + ((r && (r.message || r.toString())) || '?'), 'warn')
   })
+  /* console.warn/error тоже на баннер — наши catch блоки логируют сюда. */
+  var origWarn = console.warn.bind(console)
+  console.warn = function(){
+    origWarn.apply(null, arguments)
+    var parts = Array.prototype.slice.call(arguments).map(stringify).join(' ')
+    if (parts.length > 280) parts = parts.slice(0, 280) + '…'
+    banner('WARN: ' + parts, 'warn')
+  }
+  var origError = console.error.bind(console)
+  console.error = function(){
+    origError.apply(null, arguments)
+    var parts = Array.prototype.slice.call(arguments).map(stringify).join(' ')
+    if (parts.length > 280) parts = parts.slice(0, 280) + '…'
+    banner('ERR: ' + parts, 'error')
+  }
 })()
 </script>
 
