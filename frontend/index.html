@@ -1140,9 +1140,6 @@ function streaksBlockHTML(items) {
 
 /* ────────────────────────────────────────────────────────────────
  *  Карточка 2 — Здоровье (Whoop)
- *  TODO: дёргать новую EF get-health-summary-widget (когда появится)
- *        или собирать на клиенте из whoop_sleeps / whoop_recovery.
- *        Пока — no_data state.
  * ──────────────────────────────────────────────────────────────── */
 async function loadHealth() {
   if (PREVIEW) return MOCK.health
@@ -1154,6 +1151,43 @@ async function loadHealth() {
     console.warn('health load failed', e)
     return { state: 'no_data', syncedAt: null }
   }
+}
+
+/* Проактивный pull с Whoop. Условия:
+ *   1) Локальное время >= 3:00 (раньше Whoop ещё не записал ночь).
+ *   2) В БД нет whoop_recovery с date == локальное «сегодня».
+ *   3) С прошлого pull прошло > 60 сек (throttle, чтобы не упереться в
+ *      Whoop API rate-limit 10 req/min при быстрых перезагрузках).
+ * Возвращает true, если успешно дёрнули и стоит перезагрузить карточку. */
+const WHOOP_THROTTLE_KEY = 'pj:home:whoop-fetch-last'
+const WHOOP_THROTTLE_MS = 60 * 1000
+
+async function maybeRefreshWhoop() {
+  if (PREVIEW) return false
+  const tz = PROFILE.tz
+  const now = new Date()
+  const localHour = Number(new Intl.DateTimeFormat('en-US', {
+    timeZone: tz, hour: 'numeric', hourCycle: 'h23',
+  }).format(now))
+  if (localHour < 3) return false
+
+  const todayLocal = todayISO(tz)
+  const { data: rec, error: recErr } = await db
+    .from('whoop_recovery')
+    .select('date')
+    .eq('date', todayLocal)
+    .maybeSingle()
+  if (recErr) { console.warn('whoop recovery check failed', recErr); return false }
+  if (rec) return false
+
+  const last = Number(localStorage.getItem(WHOOP_THROTTLE_KEY) || 0)
+  if (Date.now() - last < WHOOP_THROTTLE_MS) return false
+  localStorage.setItem(WHOOP_THROTTLE_KEY, String(Date.now()))
+
+  console.info('whoop-fetch: pulling fresh data...')
+  const { error: fErr } = await db.functions.invoke('whoop-fetch')
+  if (fErr) { console.warn('whoop-fetch failed', fErr); return false }
+  return true
 }
 
 function renderHealth(data) {
@@ -1752,6 +1786,13 @@ document.getElementById('card-japa').innerHTML   = SKELETON
 document.getElementById('card-health').innerHTML = SKELETON
 document.getElementById('card-tasks').innerHTML  = SKELETON
 document.getElementById('card-cal').innerHTML    = SKELETON
+
+/* Параллельно с первой загрузкой карточки Здоровья — пробуем дёрнуть
+ * whoop-fetch (если уже после 3 утра и сегодняшних данных в БД нет).
+ * Если успешно — перезагружаем карточку. */
+maybeRefreshWhoop().then(refreshed => {
+  if (refreshed) loadHealth().then(d => { cache.health = d; renderHealth(d) })
+})
 
 Promise.allSettled([
   loadJapa().then(d => { cache.japa = d; renderJapa(d) }),
