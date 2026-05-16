@@ -1018,12 +1018,19 @@ async function loadProfile() {
 /* Объединённый запрос profile + weather + health за один round-trip. */
 async function loadHomeBundle() {
   if (PREVIEW) return null
+  console.info('[home-bundle] invoke...')
   try {
     const { data, error } = await db.functions.invoke('get-home-bundle')
-    if (error) throw error
+    if (error) {
+      let detail = ''
+      try { detail = await error.context?.clone().text() } catch {}
+      console.warn('[home-bundle] error', error.message, detail)
+      return null
+    }
+    console.info('[home-bundle] ok', { hasProfile: !!data?.profile, hasWeather: !!data?.weather, healthState: data?.health?.state })
     return data
   } catch (e) {
-    console.warn('home-bundle load failed', e)
+    console.warn('[home-bundle] threw', e)
     return null
   }
 }
@@ -1888,13 +1895,15 @@ document.addEventListener('click', async (e) => {
   const btn = e.target.closest('[data-delete-task]')
   if (!btn) return
   const id = btn.getAttribute('data-delete-task')
+  console.info('[task-delete] click', id)
   btn.disabled = true
   try {
     await deleteTask(id)
+    console.info('[task-delete] db ok', id)
     if (!PREVIEW) cache.tasks = await loadTasks()
     renderTasks(cache.tasks)
   } catch (err) {
-    console.error(err)
+    console.error('[task-delete] failed', err)
     btn.disabled = false
   }
 })
