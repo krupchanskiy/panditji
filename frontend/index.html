@@ -219,9 +219,10 @@ body {
 }
 .hc--cal .card-title-text { color: var(--gold-deep); }
 
-/* Свёрнутая карточка: cursor + chevron-вниз снизу */
-.hc[data-collapsed="true"] { cursor: pointer; padding-bottom: 22px; }
-.hc[data-collapsed="true"]::before {
+/* Chevron-вниз снизу карточки как явный аффорданс toggle.
+ * В свёрнутом — направлен вниз («разверни»), в раскрытом — флип на 180° («сверни»). */
+.hc { cursor: pointer; padding-bottom: 22px; }
+.hc::before {
   content: "";
   position: absolute;
   left: 50%; bottom: 6px;
@@ -235,8 +236,12 @@ body {
   background-position: 0 0, 8px 0;
   opacity: 0.5;
   pointer-events: none;
+  transition: opacity .12s ease, transform .15s ease;
 }
-.hc[data-collapsed="true"]:hover::before { opacity: 0.85; }
+.hc:hover::before { opacity: 0.85; }
+.hc[data-collapsed="false"]::before {
+  transform: translateX(-50%) rotate(180deg);
+}
 
 /* Вертикальная цветная полоса слева */
 .hc::after {
@@ -1146,7 +1151,7 @@ function renderJapa(data) {
         <div class="sessions-list">
           <div class="sub-eyebrow">Последние сессии</div>
           ${lastSessions.map(s => `
-            <a class="sess-row" href="/meditation/sessions.html?id=${esc(s.id)}">
+            <a class="sess-row" data-no-toggle="1" href="/meditation/sessions.html?id=${esc(s.id)}">
               <div class="sess-date">${esc(s.date)}</div>
               <div class="sess-mid">
                 <span class="num">${esc(fmt.durMin(s.durationMin))}</span>
@@ -1356,7 +1361,7 @@ function healthRingHTML({ label, tone, pct, basePct, valueHTML, base, delta, hre
     ? `<div class="hr-ring-baseline" style="--bp:${Math.max(0, Math.min(100, basePct))}" aria-hidden="true"></div>`
     : ''
   const tag = href ? 'a' : 'div'
-  const attrs = href ? ` href="${esc(href)}" data-no-toggle="1"` : ''
+  const attrs = href ? ` href="${esc(href)}" data-no-toggle="1"` : ' data-no-toggle="1"'
   return `
     <${tag} class="hr-cell${href ? ' hr-cell--link' : ''}"${attrs}>
       <div class="hr-row-top">
@@ -1374,7 +1379,7 @@ function healthRingHTML({ label, tone, pct, basePct, valueHTML, base, delta, hre
 
 function extraRowHTML({ label, today, base, delta, href }) {
   const tag = href ? 'a' : 'div'
-  const attrs = href ? ` href="${esc(href)}" data-no-toggle="1"` : ''
+  const attrs = href ? ` href="${esc(href)}" data-no-toggle="1"` : ' data-no-toggle="1"'
   return `
     <${tag} class="extra-row${href ? ' extra-row--link' : ''}"${attrs}>
       <div class="extra-label">${esc(label)}</div>
@@ -1470,7 +1475,7 @@ function renderTasks(data) {
       <div class="ov-group">
         <div class="ov-eyebrow">Хвосты</div>
         ${overdue.map(t => `
-          <div class="task-row task-row--tail">
+          <div class="task-row task-row--tail" data-no-toggle="1">
             <button class="hb-checkbox" type="button" role="checkbox" aria-checked="false" data-toggle-task="${esc(t.id)}" data-no-toggle="1"></button>
             <div class="task-text">
               <div>${esc(t.text)}</div>
@@ -1485,7 +1490,7 @@ function renderTasks(data) {
       <div class="today-group">
         ${exp && overdue?.length ? `<div class="ov-eyebrow">Сегодня</div>` : ''}
         ${shownTodays.map(t => `
-          <div class="task-row ${t.done ? 'is-done' : ''}">
+          <div class="task-row ${t.done ? 'is-done' : ''}" data-no-toggle="1">
             <button class="hb-checkbox ${t.done ? 'is-checked' : ''}" type="button" role="checkbox"
               aria-checked="${t.done}" data-toggle-task="${esc(t.id)}" data-no-toggle="1">
               ${t.done ? ICONS.checkMark : ''}
@@ -1761,7 +1766,7 @@ function timelineHTML(title, events, highlightTime) {
       <div class="ev-eyebrow ev-eyebrow--italic">${esc(title)}</div>
       <div class="ev-timeline">
         ${events.map(e => `
-          <div class="ev-tl-row" data-work="${e.isWork ? 'true' : 'false'}" data-first="${highlightTime === e.time ? 'true' : 'false'}">
+          <div class="ev-tl-row" data-no-toggle="1" data-work="${e.isWork ? 'true' : 'false'}" data-first="${highlightTime === e.time ? 'true' : 'false'}">
             <div class="ev-tl-time">${esc(e.time)}</div>
             <div class="ev-tl-mid">
               <div class="ev-tl-title">${esc(e.title)}${e.hasLink ? `<span class="ev-cam">${ICONS.cameraSm}</span>` : ''}</div>
@@ -1789,35 +1794,21 @@ function rerender(key) {
 
 const CARD_KEY = { 'card-japa': 'japa', 'card-health': 'health', 'card-tasks': 'tasks', 'card-cal': 'cal' }
 
+/* Toggle при тапе по контейнеру в любом состоянии (Вариант 1).
+ *   - Интерактивы (data-no-toggle) — пропускают.
+ *   - Title «Задачи →» — всегда ведёт на /tasks/ (это <a> с data-no-toggle).
+ *   - В раскрытом виде тап «между» строк сворачивает карточку. Тап по самим
+ *     строкам (data-no-toggle на task-row / sess-row / ev-tl-row / hr-cell /
+ *     extra-row) не сворачивает — чтобы случайно не схлопнуть при чтении. */
 document.addEventListener('click', (e) => {
-  /* Игнор кликов по интерактивным элементам внутри карточки. */
   if (e.target.closest('[data-no-toggle]')) return
-
   const card = e.target.closest('.hc[data-collapsed]')
   if (!card) return
-  /* Раскрываем по тапу только когда свёрнуто. Когда раскрыто — клики внутри ничего не делают. */
-  if (card.getAttribute('data-collapsed') !== 'true') return
   const key = CARD_KEY[card.id]
   if (!key) return
-  setExpanded(key, true)
+  const isExpanded = card.getAttribute('data-collapsed') === 'false'
+  setExpanded(key, !isExpanded)
   rerender(key)
-})
-
-/* Клик по chevron-стрелке у названия (для свернуть, когда раскрыто) */
-document.addEventListener('click', (e) => {
-  const titleBtn = e.target.closest('.card-title-btn')
-  if (!titleBtn) return
-  const card = titleBtn.closest('.hc[data-collapsed]')
-  if (!card) return
-  // Если карточка свёрнута — даём ссылке открыться (на страницу раздела).
-  // Если раскрыта — превращаем в "свернуть".
-  if (card.getAttribute('data-collapsed') === 'false') {
-    e.preventDefault()
-    const key = CARD_KEY[card.id]
-    if (!key) return
-    setExpanded(key, false)
-    rerender(key)
-  }
 })
 
 /* ────────────────────────────────────────────────────────────────
