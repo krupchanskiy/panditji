@@ -760,6 +760,28 @@ a.extra-row:active { opacity: 0.7; }
   </defs>
 </svg>
 
+<!-- Визуальный лог JS-ошибок — для диагностики на мобильном без DevTools.
+     Закрывается тапом по баннеру. -->
+<script>
+(function(){
+  function banner(msg, kind) {
+    var el = document.createElement('div')
+    el.style.cssText = 'position:fixed;top:' + (document.querySelectorAll('.js-err-banner').length * 56) + 'px;left:0;right:0;z-index:9999;padding:10px 14px;background:' + (kind==='warn'?'#a76':'#c44') + ';color:white;font:12px/1.4 -apple-system,system-ui,sans-serif;cursor:pointer;'
+    el.className = 'js-err-banner'
+    el.textContent = msg
+    el.onclick = function(){ el.remove() }
+    document.body && document.body.appendChild(el)
+  }
+  window.addEventListener('error', function(e){
+    banner('JS: ' + (e.message||'?') + ' @ ' + (e.filename||'').split('/').pop() + ':' + e.lineno, 'error')
+  })
+  window.addEventListener('unhandledrejection', function(e){
+    var r = e.reason
+    banner('Promise: ' + ((r && (r.message || r.toString())) || '?'), 'warn')
+  })
+})()
+</script>
+
 <div class="app">
   <div id="page-meta"></div>
   <!-- Initial skeletons видны при парсинге HTML, до того как JS подгрузится. -->
@@ -1966,37 +1988,60 @@ if (!PREVIEW) {
 
 renderHeader(getHeaderData())
 
-/* Bundle: profile + weather + health одним вызовом. Когда придёт, обновляем
- * всё сразу. Если TZ изменился — перезагружаем tasks/calendar (они от него зависят).
- * В PREVIEW режиме bundle = null, используем mock через loadHealth напрямую. */
+/* Bundle: profile + weather + health одним вызовом. Если падает — fallback
+ * на отдельные loadProfile/loadWeather/loadHealth (safety net на случай если
+ * на мобильной сети bundle не дойдёт). */
 if (PREVIEW) {
   loadHealth().then(d => { cache.health = d; renderHealth(d) })
+} else {
+  const bundlePromise = loadHomeBundle()
+  bundlePromise.then(b => {
+    if (b) {
+      let tzChanged = false
+      if (b.profile?.tz) {
+        tzChanged = b.profile.tz !== PROFILE.tz
+        PROFILE.tz = b.profile.tz
+        PROFILE.locationName = b.profile.locationName || PROFILE.locationName
+        swrWrite('profile', b.profile)
+      }
+      if (b.weather && typeof b.weather.temperature_c === 'number') {
+        PROFILE.temperature = Math.round(b.weather.temperature_c)
+        swrWrite('weather', PROFILE.temperature)
+      }
+      renderHeader(getHeaderData())
+      if (b.health) {
+        cache.health = b.health
+        swrWrite('health', b.health)
+        renderHealth(b.health)
+      }
+      if (tzChanged) {
+        loadTasks().then(d => { cache.tasks = d; swrWrite('tasks', d); renderTasks(d) }).catch(() => {})
+        loadCalendar().then(d => { cache.cal = d; swrWrite('cal', d); renderCalendar(d) }).catch(() => {})
+      }
+    } else {
+      /* Bundle упал — fallback на отдельные EF. */
+      console.warn('[bundle-fallback] using legacy individual EFs')
+      loadProfile().then(p => {
+        const tzChanged = p.tz !== PROFILE.tz
+        PROFILE.tz = p.tz
+        PROFILE.locationName = p.locationName
+        swrWrite('profile', p)
+        renderHeader(getHeaderData())
+        if (tzChanged) {
+          loadTasks().then(d => { cache.tasks = d; swrWrite('tasks', d); renderTasks(d) }).catch(() => {})
+          loadCalendar().then(d => { cache.cal = d; swrWrite('cal', d); renderCalendar(d) }).catch(() => {})
+        }
+      }).catch(() => {})
+      loadWeather().then(t => {
+        if (t == null) return
+        PROFILE.temperature = t
+        swrWrite('weather', t)
+        renderHeader(getHeaderData())
+      }).catch(() => {})
+      loadHealth().then(d => { cache.health = d; swrWrite('health', d); renderHealth(d) }).catch(() => {})
+    }
+  })
 }
-const bundlePromise = loadHomeBundle()
-bundlePromise.then(b => {
-  if (!b) return
-  let tzChanged = false
-  if (b.profile?.tz) {
-    tzChanged = b.profile.tz !== PROFILE.tz
-    PROFILE.tz = b.profile.tz
-    PROFILE.locationName = b.profile.locationName || PROFILE.locationName
-    swrWrite('profile', b.profile)
-  }
-  if (b.weather && typeof b.weather.temperature_c === 'number') {
-    PROFILE.temperature = Math.round(b.weather.temperature_c)
-    swrWrite('weather', PROFILE.temperature)
-  }
-  renderHeader(getHeaderData())
-  if (b.health) {
-    cache.health = b.health
-    swrWrite('health', b.health)
-    renderHealth(b.health)
-  }
-  if (tzChanged) {
-    loadTasks().then(d => { cache.tasks = d; swrWrite('tasks', d); renderTasks(d) }).catch(() => {})
-    loadCalendar().then(d => { cache.cal = d; swrWrite('cal', d); renderCalendar(d) }).catch(() => {})
-  }
-})
 
 /* Проактивный pull Whoop — если после 3 утра и за сегодня данных нет.
  * После успеха перезапросим bundle (профиль/погода кэшируются на сервере). */
