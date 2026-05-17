@@ -254,6 +254,168 @@ async function routeMessage(text: string, tz: string, userShortName: string): Pr
   }
 }
 
+/* Ищем уже существующие события, пересекающиеся с новым.
+ * Базовая overlap-проверка: existing.start < new.end AND existing.end > new.start. */
+async function findCalendarConflicts(
+  admin: SupabaseClient,
+  userId: string,
+  ev: { start_at_iso: string; end_at_iso: string },
+): Promise<Array<{ id: string; title: string; start_at: string; end_at: string | null }>> {
+  const { data, error } = await admin
+    .from('calendar_events')
+    .select('id, title, start_at, end_at')
+    .eq('user_id', userId)
+    .is('deleted_at', null)
+    .lt('start_at', ev.end_at_iso)
+    .gt('end_at',   ev.start_at_iso)
+    .order('start_at', { ascending: true })
+  if (error) {
+    console.warn('conflict check failed', error)
+    return []
+  }
+  return data ?? []
+}
+
+function fmtTime(iso: string, tz: string): string {
+  return new Intl.DateTimeFormat('ru-RU', {
+    timeZone: tz, hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+  }).format(new Date(iso))
+}
+
+const MONTHS_GEN_RU = ['января','февраля','марта','апреля','мая','июня','июля','августа','сентября','октября','ноября','декабря']
+
+function fmtDateRu(iso: string, tz: string): string {
+  const d = new Date(iso)
+  const day = Number(new Intl.DateTimeFormat('en-CA', { timeZone: tz, day: 'numeric' }).format(d))
+  const monthIdx = Number(new Intl.DateTimeFormat('en-CA', { timeZone: tz, month: 'numeric' }).format(d)) - 1
+  return `${day} ${MONTHS_GEN_RU[monthIdx]}`
+}
+
+function buildConflictMessage(
+  ev: { title: string; start_at_iso: string; end_at_iso: string },
+  conflicts: Array<{ title: string; start_at: string; end_at: string | null }>,
+  tz: string,
+): string {
+  const newDate = fmtDateRu(ev.start_at_iso, tz)
+  const newRange = `${fmtTime(ev.start_at_iso, tz)}—${fmtTime(ev.end_at_iso, tz)}`
+  const head = `«${ev.title}», ${newDate} ${newRange} — пересекается с:`
+  const lines = conflicts.map(c => {
+    const range = c.end_at
+      ? `${fmtTime(c.start_at, tz)}—${fmtTime(c.end_at, tz)}`
+      : fmtTime(c.start_at, tz)
+    return `• ${c.title || '(без названия)'} — ${range}`
+  }).join('\n')
+  return `${head}\n${lines}\n\nЧто делать?`
+}
+
+async function sendTgWithInlineKeyboard(
+  chatId: number,
+  text: string,
+  buttons: Array<{ text: string; callback_data: string }>,
+): Promise<void> {
+  const token = Deno.env.get('TELEGRAM_BOT_TOKEN')!
+  await fetch(`${TG_API}/bot${token}/sendMessage`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      chat_id: chatId,
+      text,
+      reply_markup: { inline_keyboard: [buttons] },
+    }),
+  })
+}
+
+async function editTgMessage(chatId: number, messageId: number, text: string): Promise<void> {
+  const token = Deno.env.get('TELEGRAM_BOT_TOKEN')!
+  await fetch(`${TG_API}/bot${token}/editMessageText`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ chat_id: chatId, message_id: messageId, text }),
+  })
+}
+
+async function answerCallback(callbackQueryId: string): Promise<void> {
+  const token = Deno.env.get('TELEGRAM_BOT_TOKEN')!
+  await fetch(`${TG_API}/bot${token}/answerCallbackQuery`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ callback_query_id: callbackQueryId }),
+  })
+}
+
+function isCalendarCallback(data: string): boolean {
+  return data === 'cal_force' || data === 'cal_cancel'
+}
+
+/* Зеркало созданного события в нашей calendar_events — чтобы PWA сразу видело. */
+async function mirrorCalendarEvent(
+  admin: SupabaseClient,
+  userId: string,
+  ev: { title: string; start_at_iso: string; end_at_iso: string; location?: string | null },
+  googleId: string,
+  tz: string,
+): Promise<void> {
+  await admin.from('calendar_events').upsert({
+    user_id: userId,
+    google_event_id: googleId,
+    google_calendar_id: 'primary',
+    title: ev.title,
+    location_text: ev.location ?? null,
+    start_at: ev.start_at_iso,
+    end_at: ev.end_at_iso,
+    is_all_day: false,
+    timezone: tz,
+    source: 'telegram_text',
+    last_synced_at: new Date().toISOString(),
+  }, { onConflict: 'google_event_id' })
+}
+
+async function handleCalendarCallback(
+  admin: SupabaseClient,
+  callbackQuery: any,
+  userId: string,
+): Promise<void> {
+  await answerCallback(callbackQuery.id)
+  const chatId: number = callbackQuery.message?.chat?.id
+  const messageId: number = callbackQuery.message?.message_id
+  if (!chatId || !messageId) return
+
+  const { data: pending } = await admin
+    .from('pending_calendar_event')
+    .select('event_payload, tz')
+    .eq('user_id', userId)
+    .maybeSingle()
+  if (!pending) {
+    await editTgMessage(chatId, messageId, 'Время вышло — попробуй ещё раз.')
+    return
+  }
+
+  if (callbackQuery.data === 'cal_cancel') {
+    await admin.from('pending_calendar_event').delete().eq('user_id', userId)
+    await editTgMessage(chatId, messageId, 'Отменил.')
+    return
+  }
+
+  if (callbackQuery.data === 'cal_force') {
+    await admin.from('pending_calendar_event').delete().eq('user_id', userId)
+    const ev = pending.event_payload as { title: string; start_at_iso: string; end_at_iso: string; location?: string | null }
+    const tz = pending.tz as string
+
+    const accessToken = await googleAccessToken(admin, userId)
+    if (!accessToken) {
+      await editTgMessage(chatId, messageId, 'Google Calendar не подключён. Открой утренний экран и переподключи.')
+      return
+    }
+    const created = await createGoogleEvent(accessToken, ev, tz)
+    if (!created) {
+      await editTgMessage(chatId, messageId, 'Не получилось положить в Google Calendar — посмотрю логи.')
+      return
+    }
+    await mirrorCalendarEvent(admin, userId, ev, created.id, tz)
+    await editTgMessage(chatId, messageId, `Записал: ${ev.title}, ${fmtDateRu(ev.start_at_iso, tz)} ${fmtTime(ev.start_at_iso, tz)}.`)
+  }
+}
+
 async function createGoogleEvent(
   accessToken: string,
   ev: { title: string; start_at_iso: string; end_at_iso: string; location?: string | null },
@@ -298,20 +460,27 @@ Deno.serve(async (req) => {
     return ok()
   }
 
-  /* Callback queries (inline-button taps in the джапа dialog) come on their own field. */
-  if (update.callback_query && isMeditationCallback(update.callback_query.data ?? '')) {
-    const admin = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
-    )
-    const tgUserId = update.callback_query.from?.id
-    const { data: profile } = await admin
-      .from('user_profile').select('id')
-      .eq('telegram_chat_id', tgUserId).maybeSingle()
-    if (profile) {
-      await handleCallback(admin, update.callback_query, profile.id as string)
+  /* Callback queries (inline-button taps) — джапа-диалог или calendar-конфликт. */
+  if (update.callback_query) {
+    const cbData = update.callback_query.data ?? ''
+    if (isMeditationCallback(cbData) || isCalendarCallback(cbData)) {
+      const admin = createClient(
+        Deno.env.get('SUPABASE_URL')!,
+        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+      )
+      const tgUserId = update.callback_query.from?.id
+      const { data: profile } = await admin
+        .from('user_profile').select('id')
+        .eq('telegram_chat_id', tgUserId).maybeSingle()
+      if (profile) {
+        if (isCalendarCallback(cbData)) {
+          await handleCalendarCallback(admin, update.callback_query, profile.id as string)
+        } else {
+          await handleCallback(admin, update.callback_query, profile.id as string)
+        }
+      }
+      return ok()
     }
-    return ok()
   }
 
   const message = update.message ?? update.edited_message
@@ -454,6 +623,28 @@ Deno.serve(async (req) => {
   }
 
   if (routed.intent === 'create_event' && routed.event) {
+    /* Перед созданием — проверяем пересечения с существующими. */
+    const conflicts = await findCalendarConflicts(admin, profile.id, routed.event)
+    if (conflicts.length > 0) {
+      /* Сохраняем pending и спрашиваем подтверждение. */
+      await admin.from('pending_calendar_event').upsert({
+        user_id: profile.id,
+        event_payload: routed.event,
+        tz,
+        conflict_count: conflicts.length,
+      }, { onConflict: 'user_id' })
+      await sendTgWithInlineKeyboard(
+        chatId,
+        buildConflictMessage(routed.event, conflicts, tz),
+        [
+          { text: 'Создать всё равно', callback_data: 'cal_force' },
+          { text: 'Отменить',           callback_data: 'cal_cancel' },
+        ],
+      )
+      return ok()
+    }
+
+    /* Конфликтов нет — создаём как обычно. */
     const accessToken = await googleAccessToken(admin, profile.id)
     if (!accessToken) {
       await sendTg(chatId, 'Google Calendar не подключён или сломан. Открой in.adrian.ru/morning.html и переподключи.')
@@ -464,20 +655,7 @@ Deno.serve(async (req) => {
       await sendTg(chatId, 'Не получилось положить в Google Calendar — посмотрю логи позже.')
       return ok()
     }
-    /* Зеркалим в нашу БД. */
-    await admin.from('calendar_events').upsert({
-      user_id: profile.id,
-      google_event_id: created.id,
-      google_calendar_id: 'primary',
-      title: routed.event.title,
-      location_text: routed.event.location ?? null,
-      start_at: routed.event.start_at_iso,
-      end_at: routed.event.end_at_iso,
-      is_all_day: false,
-      timezone: tz,
-      source: 'telegram_text',
-      last_synced_at: new Date().toISOString(),
-    }, { onConflict: 'google_event_id' })
+    await mirrorCalendarEvent(admin, profile.id, routed.event, created.id, tz)
     await sendTg(chatId, routed.reply)
     return ok()
   }
