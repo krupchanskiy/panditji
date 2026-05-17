@@ -201,6 +201,28 @@
     background: linear-gradient(160deg, oklch(0.96 0.025 85 / 0.9), oklch(0.93 0.04 80 / 0.75));
     border: 1px solid color-mix(in oklch, oklch(0.70 0.08 78) 18%, transparent);
   }
+  /* Точки событий из Google Calendar — по одной за каждую встречу (max 3 + …) */
+  .cell .ev-dots {
+    position: absolute; left: 50%; bottom: 4px;
+    transform: translateX(-50%);
+    display: flex; align-items: center; gap: 2px;
+    pointer-events: none;
+  }
+  .cell .ev-dots .dot {
+    width: 3px; height: 3px; border-radius: 50%;
+    background: var(--sage-deep); opacity: 0.75;
+  }
+  .cell .ev-dots .more {
+    font-size: 8px; line-height: 1; color: var(--sage-deep); opacity: 0.85;
+    margin-left: 1px;
+  }
+  /* На цветных плашках (экадаши/праздник/выбранный день) точки белые. */
+  .cell.ekadasi .ev-dots .dot,
+  .cell.holiday .ev-dots .dot,
+  .cell.selected .ev-dots .dot { background: white; opacity: 0.95; }
+  .cell.ekadasi .ev-dots .more,
+  .cell.holiday .ev-dots .more,
+  .cell.selected .ev-dots .more { color: white; opacity: 0.95; }
 
   /* Legend */
   .legend {
@@ -282,6 +304,29 @@
   .ev .ic.app { background: oklch(0.93 0.06 80 / 0.7); border: 1px solid color-mix(in oklch, var(--gold-deep) 28%, transparent); color: var(--gold-deep); }
   .ev .ic.dis { background: oklch(0.92 0.045 290 / 0.7); border: 1px solid color-mix(in oklch, var(--lav-deep) 28%, transparent); color: var(--lav-deep); }
   .ev .ic.other { background: rgba(255,255,255,0.6); border: 1px solid var(--hairline); color: var(--ink-soft); }
+  /* Встречи из Google Calendar — выше panchanga/вайшнавских событий. */
+  .meetings { margin: 0 16px; display: flex; flex-direction: column; gap: 6px; }
+  .meetings .eyebrow-sub {
+    font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.10em;
+    color: var(--ink-soft); font-weight: 700;
+    margin: 4px 0 2px;
+  }
+  .meet {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 12px; border-radius: 12px;
+    background: rgba(255,255,255,0.65);
+    border: 1px solid var(--hairline);
+  }
+  .meet .ic {
+    flex: none; width: 28px; height: 28px; border-radius: 50%;
+    display: grid; place-items: center;
+    background: color-mix(in oklch, var(--sage) 14%, transparent);
+    border: 1px solid color-mix(in oklch, var(--sage-deep) 24%, transparent);
+    color: var(--sage-deep);
+  }
+  .meet .body { flex: 1; min-width: 0; }
+  .meet .ttl { font-size: 14px; font-weight: 600; color: var(--ink-2); letter-spacing: -0.005em; }
+  .meet .time { margin-top: 2px; font-size: 12px; color: var(--text-3); font-weight: 500; }
   .ev .body { flex: 1; min-width: 0; }
   .ev .ttl { font-size: 14px; font-weight: 600; color: var(--ink-2); line-height: 1.3; letter-spacing: -0.005em; }
   .ev .sub { font-size: 11.5px; color: var(--text-3); margin-top: 1px; font-family: 'EB Garamond', Georgia, serif; font-style: italic; letter-spacing: 0.01em; }
@@ -549,12 +594,14 @@
     today: null,            // YYYY-MM-DD
     grid: null,             // month-grid response { days: [...] }
     dayData: null,          // day response { panchanga, events, paran }
+    monthEvents: new Map(), // Map<YYYY-MM-DD, eventCount> — точки на сетке
+    dayEvents: [],          // [{ id, start_at, end_at, title, ... }] — блок встреч в дне
   }
 
   // ---- Render helpers ----
 
   function buildGridCells() {
-    const { year, month, today, selectedDate, grid } = STATE
+    const { year, month, today, selectedDate, grid, monthEvents } = STATE
     const flagsByDate = new Map((grid?.days ?? []).map(d => [d.date, d]))
 
     const first = new Date(year, month - 1, 1)
@@ -580,6 +627,7 @@
         minor: !!flags?.isMinor,
         today: iso === today,
         selected: iso === selectedDate,
+        eventCount: monthEvents.get(iso) || 0,
       })
     }
     // Заполняем дни следующего месяца до конца сетки
@@ -589,6 +637,13 @@
       cells.push({ d: nextD++, muted: true })
     }
     return cells
+  }
+
+  function eventDotsHTML(count) {
+    if (!count) return ''
+    const shown = Math.min(count, 3)
+    const more = count > 3 ? `<span class="more">+${count - 3}</span>` : ''
+    return `<span class="ev-dots">${'<span class="dot"></span>'.repeat(shown)}${more}</span>`
   }
 
   function renderGrid() {
@@ -603,7 +658,7 @@
       if (c.ekadasi) classes.push('ekadasi')
       else if (c.holiday) classes.push('holiday')
       else if (c.minor) classes.push('minor')
-      return `<button class="${classes.join(' ')}" data-iso="${c.iso}">${c.d}</button>`
+      return `<button class="${classes.join(' ')}" data-iso="${c.iso}">${c.d}${eventDotsHTML(c.eventCount)}</button>`
     }).join('')
 
     grid.querySelectorAll('button[data-iso]').forEach(btn => {
@@ -647,6 +702,25 @@
         <span class="pill">${WEEKDAYS[wd]}</span>
       </div>
       <div class="date-big">${d} ${MONTHS_GEN[m - 1]} ${y}</div>`)
+
+    /* Встречи дня — выше panchanga/paran/вайшнавских событий, как просил Адриан. */
+    if (STATE.dayEvents.length > 0) {
+      const rows = STATE.dayEvents.map(ev => {
+        const start = new Date(ev.start_at)
+        const end = ev.end_at ? new Date(ev.end_at) : null
+        const time = fmtTime(ev.start_at, tz)
+        const endTime = end ? fmtTime(ev.end_at, tz) : null
+        const range = endTime ? `${time} — ${endTime}` : time
+        return `<div class="meet">
+          <span class="ic"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></span>
+          <div class="body">
+            <div class="ttl">${esc(ev.title || '(без названия)')}</div>
+            <div class="time num">${range}</div>
+          </div>
+        </div>`
+      }).join('')
+      heroParts.push(`<div class="meetings"><div class="eyebrow-sub">Встречи</div>${rows}</div>`)
+    }
 
     if (p) {
       heroParts.push(`<div class="tithi-row">
@@ -988,19 +1062,77 @@
   }
 
   async function loadMonth() {
-    const r = await db.functions.invoke(`astro-api?kind=month-grid&year=${STATE.year}&month=${STATE.month}`)
+    /* Параллельно: вайшнавская сетка месяца + точки встреч на каждый день. */
+    const [r, _] = await Promise.all([
+      db.functions.invoke(`astro-api?kind=month-grid&year=${STATE.year}&month=${STATE.month}`),
+      loadMonthEvents(),
+    ])
     if (r.error) { console.warn('month-grid', r.error); return }
     STATE.grid = r.data
     renderGrid()
   }
 
+  /* Считаем встречи на каждый день локальной TZ в текущем месяце. Запрос
+   * берёт окно ±неделя от месяца — захватит события на границе TZ. */
+  async function loadMonthEvents() {
+    const tz = STATE.currentLocation?.timezone || 'Europe/Moscow'
+    const fromIso = new Date(Date.UTC(STATE.year, STATE.month - 1, 1) - 7 * 86400000).toISOString()
+    const toIso   = new Date(Date.UTC(STATE.year, STATE.month,     1) + 7 * 86400000).toISOString()
+    const { data, error } = await db.from('calendar_events')
+      .select('start_at, is_all_day, deleted_at')
+      .is('deleted_at', null)
+      .gte('start_at', fromIso)
+      .lt('start_at', toIso)
+    if (error) { console.warn('month events', error); STATE.monthEvents = new Map(); return }
+    const ym = `${STATE.year}-${String(STATE.month).padStart(2, '0')}`
+    const map = new Map()
+    for (const ev of data ?? []) {
+      if (ev.is_all_day) continue
+      const day = new Intl.DateTimeFormat('en-CA', {
+        timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit',
+      }).format(new Date(ev.start_at))
+      if (!day.startsWith(ym)) continue
+      map.set(day, (map.get(day) || 0) + 1)
+    }
+    STATE.monthEvents = map
+  }
+
   async function loadDay() {
     if (!STATE.selectedDate) return
     document.getElementById('day-body').innerHTML = '<div class="sel-card"><div class="skeleton" style="height: 60px;"></div></div>'
-    const r = await db.functions.invoke(`astro-api?kind=day&date=${STATE.selectedDate}`)
+    const [r, evs] = await Promise.all([
+      db.functions.invoke(`astro-api?kind=day&date=${STATE.selectedDate}`),
+      loadEventsForDay(STATE.selectedDate),
+    ])
     if (r.error) { console.warn('day', r.error); return }
     STATE.dayData = r.data
+    STATE.dayEvents = evs
     renderDayBody()
+  }
+
+  /* События для конкретной локальной даты dateISO. Запрос берёт окно ±1 день
+   * по UTC, потом фильтруем по локальной дате на клиенте. */
+  async function loadEventsForDay(dateISO) {
+    const tz = STATE.currentLocation?.timezone || 'Europe/Moscow'
+    const baseMs = new Date(dateISO + 'T00:00:00Z').getTime()
+    const fromIso = new Date(baseMs - 86400000).toISOString()
+    const toIso   = new Date(baseMs + 2 * 86400000).toISOString()
+    const { data, error } = await db.from('calendar_events')
+      .select('id, start_at, end_at, title, description, is_all_day, google_calendar_id, deleted_at')
+      .is('deleted_at', null)
+      .gte('start_at', fromIso)
+      .lt('start_at', toIso)
+      .order('start_at', { ascending: true })
+    if (error) { console.warn('day events', error); return [] }
+    const out = []
+    for (const ev of data ?? []) {
+      if (ev.is_all_day) continue
+      const day = new Intl.DateTimeFormat('en-CA', {
+        timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit',
+      }).format(new Date(ev.start_at))
+      if (day === dateISO) out.push(ev)
+    }
+    return out
   }
 
   function navigateMonth(delta) {
