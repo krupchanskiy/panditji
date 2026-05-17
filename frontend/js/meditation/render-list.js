@@ -15,12 +15,14 @@ const PERIOD_OPTIONS = [
   { key: 365, label: 'всё' },
 ]
 
+/* По умолчанию ПОКАЗЫВАЕМ исключённые (preview / черновики), чтобы недозаполненные
+ * сессии не пропадали из списка. Тогглом пользователь может их скрыть. */
 const state = {
   period: 90,
   tag: null,
   locationId: null,
   calmOnly: false,
-  includeExcluded: false,
+  includeExcluded: true,
   data: null,
   loading: false,
 }
@@ -81,7 +83,7 @@ function filtersBlock() {
       </label>
       <label class="list-toggle">
         <input type="checkbox" data-action="toggle-excluded" ${state.includeExcluded ? 'checked' : ''}/>
-        <span>Показать исключённые</span>
+        <span>Черновики тоже</span>
       </label>
     </div>
 
