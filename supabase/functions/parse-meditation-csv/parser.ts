@@ -39,6 +39,16 @@ export type TimelineWindow = {
   signal_ok: boolean         // majority of EEG rows in window had HSI≤2
 }
 
+/* Метка круга из колонки Circle_Marker внешнего инструмента.
+ * t_sec — секунды от ПЕРВОЙ EEG-строки сессии (firstTsMs), а НЕ от
+ * абстрактного «момента старта»: у внешнего инструмента старт сессии и
+ * первая EEG-строка разнесены во времени. Источник истины — позиция
+ * строки с непустым Circle_Marker в самом CSV. */
+export type CircleMarker = {
+  t_sec: number
+  count: number              // сколько кругов закрылось этой меткой/серией
+}
+
 export type SessionAggregates = {
   startedAt: string          // ISO
   endedAt: string
@@ -72,6 +82,10 @@ export type SessionAggregates = {
   hrMedian: number | null
 
   timeline30s: TimelineWindow[]
+
+  /* null = колонки Circle_Marker не было ИЛИ все её значения оказались невалидны.
+   * В обоих случаях downstream работает как для телефонного Mind Monitor. */
+  circleMarkers: CircleMarker[] | null
 }
 
 export type ParseErrorCode = 'structure' | 'too_short' | 'headband_off'
@@ -115,6 +129,8 @@ export function parseMindMonitorCSV(text: string): SessionAggregates {
   }
 
   const colIdx = parseHeader(lines[0])
+  /* Опциональная колонка Circle_Marker от внешнего инструмента. -1 = не было. */
+  const circleMarkerIdx = lines[0].split(',').indexOf('Circle_Marker')
 
   /* First pass: collect timestamps + EEG rows.
    * Mind Monitor writes HeadBandOn only on EEG-aggregate rows (raw-sample rows leave it empty),
@@ -125,6 +141,9 @@ export function parseMindMonitorCSV(text: string): SessionAggregates {
   let headbandOnCount = 0
 
   const eegRows: EegRow[] = []
+  /* Собираем метки кругов параллельно. Каждая метка получает t_sec
+   * относительно firstTsMs — той же базы, что timeline и thirds. */
+  const rawMarkers: Array<{ tsMs: number; count: number }> = []
 
   for (let i = 1; i < lines.length; i++) {
     const fields = lines[i].split(',')
@@ -142,6 +161,23 @@ export function parseMindMonitorCSV(text: string): SessionAggregates {
     if (hbo === '1' || hbo === '0') {
       headbandStatusRows++
       if (hbo === '1') headbandOnCount++
+    }
+
+    /* Circle_Marker — опциональная колонка от внешнего инструмента.
+     * t_sec считается ТОЛЬКО из позиции строки в CSV: (tsMs - firstTsMs) / 1000.
+     * Не опираемся на JSON-файл и не предполагаем, что нуль отсчёта
+     * совпадает с моментом старта сессии — у внешнего инструмента это
+     * разные моменты. Источник истины — сам CSV. */
+    if (circleMarkerIdx >= 0 && circleMarkerIdx < fields.length) {
+      const raw = fields[circleMarkerIdx]
+      if (raw && raw.length > 0) {
+        const n = parseInt(raw, 10)
+        /* Принимаем только целые ≥1. Дробные / 0 / отрицательные / NaN —
+         * молча пропускаем, не падая (см. ТЗ §171, п.5). */
+        if (Number.isFinite(n) && n >= 1 && String(n) === raw.trim()) {
+          rawMarkers.push({ tsMs, count: n })
+        }
+      }
     }
 
     /* EEG-aggregate row: Theta_TP9 non-empty. Other rows skipped from analysis. */
@@ -269,6 +305,15 @@ export function parseMindMonitorCSV(text: string): SessionAggregates {
   /* Signal-shift detector. */
   const shift = detectSignalShift(timeline30s)
 
+  /* Финализируем метки кругов: t_sec от firstTsMs, сортировка по времени.
+   * compute дополнительно проверит монотонность как защитный слой. */
+  let circleMarkers: CircleMarker[] | null = null
+  if (rawMarkers.length > 0) {
+    circleMarkers = rawMarkers
+      .map(m => ({ t_sec: round2((m.tsMs - firstTsMs!) / 1000), count: m.count }))
+      .sort((a, b) => a.t_sec - b.t_sec)
+  }
+
   return {
     startedAt: new Date(firstTsMs).toISOString(),
     endedAt: new Date(lastTsMs).toISOString(),
@@ -296,6 +341,7 @@ export function parseMindMonitorCSV(text: string): SessionAggregates {
     hrLastThird: hrLastThird !== null ? round1(hrLastThird) : null,
     hrMedian: hrMedian_ !== null ? round1(hrMedian_) : null,
     timeline30s,
+    circleMarkers,
   }
 }
 

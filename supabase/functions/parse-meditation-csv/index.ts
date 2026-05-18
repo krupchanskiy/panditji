@@ -132,6 +132,7 @@ Deno.serve(async (req) => {
     hr_median: aggregates.hrMedian,
 
     timeline_30s: aggregates.timeline30s,
+    circle_markers: aggregates.circleMarkers,
 
     csv_storage_path: body.storage_path,
     csv_size_bytes: csvSizeBytes,
@@ -145,6 +146,11 @@ Deno.serve(async (req) => {
     return json({ error: 'db_upsert_failed', message: upErr.message }, 500)
   }
 
+  /* sum(count) даёт боту достаточно для confirmation-сообщения без второго SELECT. */
+  const circleMarkersCount = aggregates.circleMarkers
+    ? aggregates.circleMarkers.reduce((s, m) => s + m.count, 0)
+    : null
+
   return json({
     session_id: body.session_id,
     duration_min: Math.round(aggregates.durationSec / 60 * 10) / 10,
@@ -155,5 +161,6 @@ Deno.serve(async (req) => {
       at_minute: Math.floor(aggregates.signalShiftAtSec / 60),
       severity: aggregates.signalShiftSeverity,
     },
+    circle_markers_count: circleMarkersCount,
   })
 })

@@ -31,6 +31,8 @@ export type CircleAgg = {
 
 export type DurationCategory = 'standard' | 'short' | 'long'
 
+export type CircleMarker = { t_sec: number; count: number }
+
 export type ComputeInput = {
   durationSec: number
   thetaFirstThird: number      // from parser
@@ -41,7 +43,12 @@ export type ComputeInput = {
   /* Other regular-session durations (sec) for the user, last 30 days.
    * Empty array (or <5 entries) → duration_category falls back to 'standard'. */
   recentRegularDurations: number[]
+  /* Опциональные метки кругов из CSV (Circle_Marker от внешнего инструмента).
+   * null или пустой массив → старая логика равных отрезков. */
+  circleMarkers?: CircleMarker[] | null
 }
+
+export type CirclesSource = 'markers' | 'manual' | 'equal'
 
 export type ComputeResult = {
   circles: CircleAgg[]
@@ -53,6 +60,12 @@ export type ComputeResult = {
   calmPeriodsCount: number
   durationCategory: DurationCategory
   durationVsMedianPct: number | null  // null when no baseline (<5 sessions)
+  /* Откуда взяты границы кругов:
+   *   markers — реальные тайминги, sum(count) совпал с circlesCount;
+   *   manual  — метки есть, но число подтверждено пользователем вручную и
+   *             расходится с sum(count) (хвост перераспределён или обрезан);
+   *   equal   — меток не было, равные отрезки. */
+  circlesSource: CirclesSource
 }
 
 /* Caps and thresholds — exported for tests, named so a future reader understands intent. */
@@ -69,7 +82,22 @@ export function computeCircles(input: ComputeInput): ComputeResult {
     throw new Error('circlesCount must be ≥ 1')
   }
 
-  const circles = splitIntoCircles(input.timeline30s, input.durationSec, input.circlesCount)
+  /* Выбор способа границ. По умолчанию — старое поведение (равные отрезки).
+   * Включаем "по якорям" только если метки валидны и в осмысленном диапазоне. */
+  let circles: CircleAgg[]
+  let circlesSource: CirclesSource
+  const markers = input.circleMarkers
+  if (markers && markers.length > 0 && validMarkers(markers, input.durationSec)) {
+    circles = splitByMarkers(input.timeline30s, input.durationSec, input.circlesCount, markers)
+    const sumCount = markers.reduce((s, m) => s + m.count, 0)
+    circlesSource = sumCount === input.circlesCount ? 'markers' : 'manual'
+  } else {
+    if (markers && markers.length > 0) {
+      console.warn('circle markers present but invalid — falling back to equal split')
+    }
+    circles = splitIntoCircles(input.timeline30s, input.durationSec, input.circlesCount)
+    circlesSource = 'equal'
+  }
   const paceMinPerCircle = (input.durationSec / input.circlesCount) / 60
 
   const { deepeningPct, deepeningReliable } = computeDeepening(
@@ -97,6 +125,7 @@ export function computeCircles(input: ComputeInput): ComputeResult {
     calmPeriodsCount: periodsCount,
     durationCategory: category,
     durationVsMedianPct: vsMedianPct === null ? null : round1(vsMedianPct),
+    circlesSource,
   }
 }
 
@@ -146,6 +175,97 @@ function nearestWindows(timeline: TimelineWindow[], tStart: number, tEnd: number
     if (d < bestDist) { best = w; bestDist = d }
   }
   return [best]
+}
+
+/* Защита от мусора в метках. Парсер уже отбросил невалидные значения и
+ * отсортировал по t_sec; здесь — последний барьер в compute. */
+function validMarkers(markers: CircleMarker[], durationSec: number): boolean {
+  if (markers.length === 0) return false
+  let prev = -Infinity
+  let sumCount = 0
+  for (const m of markers) {
+    if (!Number.isFinite(m.t_sec) || m.t_sec < 0 || m.t_sec > durationSec) return false
+    if (m.t_sec <= prev) return false   // монотонность строгая
+    if (!Number.isFinite(m.count) || m.count < 1) return false
+    prev = m.t_sec
+    sumCount += m.count
+  }
+  return sumCount >= 1
+}
+
+/* Случай A: метки = реальные временные якоря.
+ * Каждая метка m: «к моменту m.t_sec закрылось ещё m.count кругов с прошлой».
+ * Алгоритм:
+ *   prevT = 0, prevCircle = 0.
+ *   Для каждой метки делим [prevT, m.t_sec] на m.count равных под-интервалов.
+ *   Хвост [lastMarkerT, durationSec] вмещает (circlesCount - prevCircle) кругов:
+ *     > 0 → делим хвост равными под-интервалами;
+ *     == 0 → хвоста нет;
+ *     < 0  (override: пользователь указал меньше суммы меток) → берём первые
+ *           circlesCount границ, остаток обрезаем с конца. */
+function splitByMarkers(
+  timeline: TimelineWindow[], durationSec: number,
+  circlesCount: number, markers: CircleMarker[],
+): CircleAgg[] {
+  const boundaries: Array<{ tStart: number; tEnd: number }> = []
+  let prevT = 0
+  let prevCircle = 0
+
+  for (const m of markers) {
+    const span = m.t_sec - prevT
+    if (span <= 0) continue
+    const step = span / m.count
+    for (let i = 0; i < m.count; i++) {
+      const tStart = prevT + i * step
+      const tEnd = prevT + (i + 1) * step
+      boundaries.push({ tStart, tEnd })
+    }
+    prevT = m.t_sec
+    prevCircle += m.count
+  }
+
+  /* Хвост до конца сессии. */
+  const tailCount = circlesCount - prevCircle
+  if (tailCount > 0 && prevT < durationSec) {
+    const span = durationSec - prevT
+    const step = span / tailCount
+    for (let i = 0; i < tailCount; i++) {
+      const tStart = prevT + i * step
+      const tEnd = (i === tailCount - 1) ? durationSec : (prevT + (i + 1) * step)
+      boundaries.push({ tStart, tEnd })
+    }
+  }
+
+  /* Override: пользователь указал меньше суммы меток — обрезаем лишние с конца. */
+  const finalBoundaries = boundaries.slice(0, circlesCount)
+
+  return finalBoundaries.map((b, idx) => {
+    const tStart = Math.round(b.tStart)
+    const tEnd = (idx === finalBoundaries.length - 1)
+      ? Math.max(tStart + 1, Math.min(durationSec, Math.round(b.tEnd)))
+      : Math.round(b.tEnd)
+
+    const wins = timeline.filter(w => w.t >= tStart && w.t < tEnd)
+    const src = wins.length > 0 ? wins : nearestWindows(timeline, tStart, tEnd)
+
+    const goodInCircle = src.filter(w => w.signal_ok)
+    const aggSrc = goodInCircle.length > 0 ? goodInCircle : src
+    const signalPct = src.length > 0 ? (goodInCircle.length / src.length) * 100 : 0
+
+    return {
+      circle_num: idx + 1,
+      t_start_sec: tStart,
+      t_end_sec: tEnd,
+      alpha_rel: round2(median(aggSrc.map(w => w.alpha))),
+      theta_rel: round2(median(aggSrc.map(w => w.theta))),
+      beta_rel:  round2(median(aggSrc.map(w => w.beta))),
+      gamma_rel: round2(median(aggSrc.map(w => w.gamma))),
+      delta_rel: round2(median(aggSrc.map(w => w.delta))),
+      ab_index:  round2(median(aggSrc.map(w => w.ab))),
+      tb_index:  round2(median(aggSrc.map(w => w.tb))),
+      signal_pct: round2(signalPct),
+    }
+  })
 }
 
 /* ── deepening ─────────────────────────────────────────────────────────── */

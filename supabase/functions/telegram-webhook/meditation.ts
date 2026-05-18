@@ -230,6 +230,32 @@ export async function handleCallback(
   }
   if (data.startsWith('jp:circles:') && pending.step === 'circles') {
     const tail = data.slice('jp:circles:'.length)
+
+    /* auto — взять число из меток Circle_Marker. */
+    if (tail === 'auto') {
+      const { data: sessRow } = await supabase
+        .from('meditation_sessions')
+        .select('circle_markers')
+        .eq('id', pending.session_id)
+        .maybeSingle()
+      const markers = (sessRow?.circle_markers ?? null) as Array<{ count: number }> | null
+      const n = markers && markers.length > 0
+        ? markers.reduce((s, m) => s + (Number(m.count) || 0), 0)
+        : 0
+      if (n < 1) {
+        /* Метки исчезли/невалидны — fallback на ручной выбор. */
+        await askCirclesManual(chatId)
+        return
+      }
+      return await advanceFromCircles(supabase, chatId, userId, pending.session_id, n)
+    }
+
+    /* manual — показать обычные кнопки выбора числа. Шаг остаётся 'circles'. */
+    if (tail === 'manual') {
+      await askCirclesManual(chatId)
+      return
+    }
+
     if (tail === 'other') {
       await setStep(supabase, userId, 'circles')   // stays; we just expect text
       await tgSend(chatId, 'Сколько кругов? Пришли число.')
@@ -328,6 +354,34 @@ async function advanceFromKind(
     }).eq('id', sessionId)
   }
   await setStep(supabase, userId, 'circles')
+
+  /* Если в файле были метки Circle_Marker (внешний инструмент) — сразу
+   * предлагаем подтвердить число из таймингов вместо обычного выбора. */
+  const { data: sessRow } = await supabase
+    .from('meditation_sessions')
+    .select('circle_markers')
+    .eq('id', sessionId)
+    .maybeSingle()
+  const markers = (sessRow?.circle_markers ?? null) as Array<{ count: number }> | null
+  const sumCount = markers && markers.length > 0
+    ? markers.reduce((s, m) => s + (Number(m.count) || 0), 0)
+    : 0
+
+  if (sumCount >= 1) {
+    await tgSend(chatId, `В записи отмечено ${sumCount} кругов по таймингам. Верно?`,
+      kbRow([
+        { text: 'Да', callback_data: 'jp:circles:auto' },
+        { text: 'Указать вручную', callback_data: 'jp:circles:manual' },
+      ]))
+    return
+  }
+
+  await askCirclesManual(chatId)
+}
+
+/* Существующий выбор числа кнопками — выделен в отдельную функцию,
+ * чтобы переиспользоваться при ручном fallback. */
+async function askCirclesManual(chatId: number): Promise<void> {
   await tgSend(chatId, 'Сколько кругов было?',
     kbRows([
       [{ text: '8', callback_data: 'jp:circles:8' },

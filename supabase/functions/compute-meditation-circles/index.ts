@@ -74,7 +74,7 @@ Deno.serve(async (req) => {
       alpha_first_third, alpha_last_third, alpha_median_rel,
       delta_first_third, delta_last_third,
       hr_first_third, hr_last_third,
-      timeline_30s
+      timeline_30s, circle_markers
     `)
     .eq('id', body.session_id)
     .eq('user_id', body.user_id)
@@ -109,6 +109,7 @@ Deno.serve(async (req) => {
     timeline30s: session.timeline_30s,
     circlesCount: body.circles,
     recentRegularDurations,
+    circleMarkers: session.circle_markers,
   })
 
   /* Tags depend on computed metrics. */
@@ -175,6 +176,7 @@ Deno.serve(async (req) => {
       auto_tags: autoTags,
       interpretations: { main, calm, phases },
       interpretation_version: INTERPRETATION_VERSION,
+      circles_source: result.circlesSource,
     })
     .eq('id', body.session_id)
     .eq('user_id', body.user_id)
