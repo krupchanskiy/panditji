@@ -13,6 +13,17 @@ import {
 import { toggleSessionExclusion, submitSessionContext, loadUserLocations } from './api.js'
 
 const VARIANT_KEY = 'panditji_main_chart_variant'
+const VARIANT_DEFAULT = 'zones'
+const VARIANT_VALID = new Set(['zones', 'bars', 'stream'])
+
+/* Старое значение 'lines' молча мигрируем в 'zones' — вкладки «Линии» больше нет
+ * (см. ТЗ §130), а оставлять её в localStorage у тех, кто открывал отчёт
+ * раньше, бессмысленно. Это тот случай, когда стандартный fallback на дефолт
+ * сделал бы скачок в «Столбики» — нам надо в «Светофор». */
+function readVariant() {
+  const v = localStorage.getItem(VARIANT_KEY)
+  return VARIANT_VALID.has(v) ? v : VARIANT_DEFAULT
+}
 
 export function renderSession(root, report) {
   /* Session uploaded but circles not confirmed → show the fill-in form
@@ -23,7 +34,7 @@ export function renderSession(root, report) {
     return
   }
 
-  const variant = localStorage.getItem(VARIANT_KEY) ?? 'bars'
+  const variant = readVariant()
   root.innerHTML = `
     ${PageHead({
       title: 'Сессия',
@@ -363,9 +374,9 @@ function mainChartCard(report, variant) {
   }
 
   const variants = [
-    { key: 'bars', label: 'столбики' },
+    { key: 'zones',  label: 'светофор' },
+    { key: 'bars',   label: 'столбики' },
     { key: 'stream', label: 'поток' },
-    { key: 'lines', label: 'линии' },
   ]
   const switcher = `
     <div class="chart-form-switch" role="tablist">
@@ -375,24 +386,77 @@ function mainChartCard(report, variant) {
       ).join('')}
     </div>`
 
-  const legend = ChartLegend({ items: [
-    { label: 'Alpha', color: CHART_COLORS.alpha },
-    { label: 'Theta', color: CHART_COLORS.theta },
-    { label: 'Beta', color: CHART_COLORS.beta, faded: true },
-  ]})
-
   return Card({
     children: `
       <div class="flex items-center justify-between gap-2">
         ${SectionTitle({ children: 'Динамика по кругам' })}
         ${switcher}
       </div>
-      <div class="mt-2">${legend}</div>
-      <div id="main-chart" class="mt-2">${renderMainChart(report.perCircle, variant)}</div>
+      <div class="mt-2" id="main-chart-legend">${legendFor(variant)}</div>
+      <div id="main-chart" class="mt-2">${chartFor(report, variant)}</div>
+      <div id="zones-overall" class="mt-3"${(variant === 'zones' && report.zonesOverall !== null) ? '' : ' hidden'}>${zonesOverallBlock(report)}</div>
       ${report.caption?.main ? `<div class="mt-2">${ClaudeBlock({ eyebrow: 'наблюдение', body: report.caption.main })}</div>` : ''}
     `,
     extraClass: 'mb-3',
   })
+}
+
+/* «Светофор» при zonesOverall === null показывает текстовый fallback и
+ * не зовёт SVG-рендер (иначе нарисовались бы пустые рамки 0 кругов).
+ * Сообщение по ТЗ §150-154 — без эмодзи, в стиле «Подтверди число кругов…»
+ * из этого же файла. */
+function chartFor(report, variant) {
+  if (variant === 'zones' && report.zonesOverall === null) {
+    return `<div class="zones-empty-msg">
+      Эта сессия была записана без зон устойчивости. Светофор доступен только для записей из настольного монитора.
+    </div>`
+  }
+  return renderMainChart(report.perCircle, variant)
+}
+
+/* Лёгкая полоска зон под графиком — общий итог по сессии. Скрыта на не-zones
+ * вкладках. При zonesOverall === null прячется молча: текст уже показан в
+ * самом графике, дублировать его двумя сообщениями некрасиво (ТЗ §163). */
+function zonesOverallBlock(report) {
+  const o = report.zonesOverall
+  if (!o) return ''
+  const g = o.green, y = o.yellow, r = o.red
+  return `
+    <div class="zones-overall-bar" role="img"
+         aria-label="Общий баланс зон по сессии: зелёная ${fmtPct(g)}, жёлтая ${fmtPct(y)}, красная ${fmtPct(r)}.">
+      <div class="seg-green"  style="width: ${g}%"></div>
+      <div class="seg-yellow" style="width: ${y}%"></div>
+      <div class="seg-red"    style="width: ${r}%"></div>
+    </div>
+    <div class="zones-overall-labels num">
+      <span>зелёная ${fmtPct(g)}</span>
+      <span class="sep">·</span>
+      <span>жёлтая ${fmtPct(y)}</span>
+      <span class="sep">·</span>
+      <span>красная ${fmtPct(r)}</span>
+    </div>
+  `
+}
+
+function fmtPct(v) {
+  if (v === null || v === undefined || !Number.isFinite(v)) return '—'
+  return v.toFixed(1).replace('.', ',') + '%'
+}
+
+/* Легенда зависит от вкладки. У «Светофора» она про зоны, а не про A/Th/B. */
+function legendFor(variant) {
+  if (variant === 'zones') {
+    return ChartLegend({ items: [
+      { label: 'зелёная',   color: '#5fae7d' },
+      { label: 'жёлтая',    color: '#c8b06a' },
+      { label: 'красная',   color: '#cc6f52' },
+    ]})
+  }
+  return ChartLegend({ items: [
+    { label: 'Alpha', color: CHART_COLORS.alpha },
+    { label: 'Theta', color: CHART_COLORS.theta },
+    { label: 'Beta',  color: CHART_COLORS.beta, faded: true },
+  ]})
 }
 
 /* ── calm strip card ──────────────────────────────────────────────────── */
@@ -569,7 +633,14 @@ function bindActions(root, report) {
       const variant = btn.dataset.variant
       localStorage.setItem(VARIANT_KEY, variant)
       const container = root.querySelector('#main-chart')
-      if (container) container.innerHTML = renderMainChart(report.perCircle, variant)
+      if (container) container.innerHTML = chartFor(report, variant)
+      const legend = root.querySelector('#main-chart-legend')
+      if (legend) legend.innerHTML = legendFor(variant)
+      const overall = root.querySelector('#zones-overall')
+      if (overall) {
+        overall.hidden = variant !== 'zones' || report.zonesOverall === null
+        overall.innerHTML = zonesOverallBlock(report)
+      }
       root.querySelectorAll('[data-action="set-variant"]').forEach(b => {
         b.classList.toggle('active', b.dataset.variant === variant)
       })
@@ -630,6 +701,36 @@ export const SESSION_STYLES = `
   .form-switch-btn.active {
     background: var(--ink-2);
     color: white;
+  }
+
+  /* «Светофор»: общий итог по сессии. Полоска под графиком — крупная,
+   * чтобы баланс зон считывался с одного взгляда (ТЗ §156-160). */
+  .zones-overall-bar {
+    display: flex;
+    height: 14px;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid rgba(255,255,255,.55);
+    background: rgba(255,255,255,.45);
+  }
+  .zones-overall-bar .seg-green  { background: #5fae7d; }
+  .zones-overall-bar .seg-yellow { background: #c8b06a; }
+  .zones-overall-bar .seg-red    { background: #cc6f52; }
+  .zones-overall-labels {
+    margin-top: 6px;
+    font-size: 11px;
+    color: var(--text-2);
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    align-items: baseline;
+  }
+  .zones-overall-labels .sep { color: var(--text-3); }
+  .zones-empty-msg {
+    font-size: 13px;
+    color: var(--text-2);
+    line-height: 1.5;
+    padding: 12px 4px;
   }
 
   .phase-row { padding: 4px 0; }

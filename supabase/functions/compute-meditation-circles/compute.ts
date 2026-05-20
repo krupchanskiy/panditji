@@ -27,11 +27,30 @@ export type CircleAgg = {
   ab_index: number
   tb_index: number
   signal_pct: number
+  /* Зоны устойчивости в интервале круга. NULL у всех четырёх = у сессии нет
+   * zone_log. zone_samples = 0 + pct = null = монитор не писал зоны на этом
+   * круге (например, пока шла автокалибровка порога в начале). */
+  zone_green_pct: number | null
+  zone_yellow_pct: number | null
+  zone_red_pct: number | null
+  zone_samples: number | null
 }
 
 export type DurationCategory = 'standard' | 'short' | 'long'
 
 export type CircleMarker = { t_sec: number; count: number }
+
+export type ZoneSample = { t_sec: number; zone: 0 | 1 | 2 }
+
+/* Результат aggregateZones. null = у сессии вообще нет zone_log; иначе
+ * всегда объект с samples ≥ 0. При samples === 0 проценты тоже null
+ * (отличаем «нет замеров в этом круге» от «100% какой-то зоны»). */
+export type ZoneAgg = {
+  green_pct: number | null
+  yellow_pct: number | null
+  red_pct: number | null
+  samples: number
+} | null
 
 export type ComputeInput = {
   durationSec: number
@@ -46,6 +65,10 @@ export type ComputeInput = {
   /* Опциональные метки кругов из CSV (Circle_Marker от внешнего инструмента).
    * null или пустой массив → старая логика равных отрезков. */
   circleMarkers?: CircleMarker[] | null
+  /* Опциональный лог зон устойчивости из CSV (Zone от внешнего монитора).
+   * null → перцикловые поля zone_* в CircleAgg все станут null,
+   * zonesOverall в результате тоже null. */
+  zoneLog?: ZoneSample[] | null
 }
 
 export type CirclesSource = 'markers' | 'manual' | 'equal'
@@ -66,6 +89,9 @@ export type ComputeResult = {
    *             расходится с sum(count) (хвост перераспределён или обрезан);
    *   equal   — меток не было, равные отрезки. */
   circlesSource: CirclesSource
+  /* Зоны устойчивости по всей сессии (0..durationSec). null = zoneLog
+   * отсутствует — UI «Светофор» в этом случае показывает fallback-сообщение. */
+  zonesOverall: ZoneAgg
 }
 
 /* Caps and thresholds — exported for tests, named so a future reader understands intent. */
@@ -87,18 +113,20 @@ export function computeCircles(input: ComputeInput): ComputeResult {
   let circles: CircleAgg[]
   let circlesSource: CirclesSource
   const markers = input.circleMarkers
+  const zoneLog = input.zoneLog ?? null
   if (markers && markers.length > 0 && validMarkers(markers, input.durationSec)) {
-    circles = splitByMarkers(input.timeline30s, input.durationSec, input.circlesCount, markers)
+    circles = splitByMarkers(input.timeline30s, input.durationSec, input.circlesCount, markers, zoneLog)
     const sumCount = markers.reduce((s, m) => s + m.count, 0)
     circlesSource = sumCount === input.circlesCount ? 'markers' : 'manual'
   } else {
     if (markers && markers.length > 0) {
       console.warn('circle markers present but invalid — falling back to equal split')
     }
-    circles = splitIntoCircles(input.timeline30s, input.durationSec, input.circlesCount)
+    circles = splitIntoCircles(input.timeline30s, input.durationSec, input.circlesCount, zoneLog)
     circlesSource = 'equal'
   }
   const paceMinPerCircle = (input.durationSec / input.circlesCount) / 60
+  const zonesOverall = aggregateZones(zoneLog, 0, input.durationSec)
 
   const { deepeningPct, deepeningReliable } = computeDeepening(
     input.thetaFirstThird, input.thetaLastThird, input.signalShiftAtSec,
@@ -126,12 +154,65 @@ export function computeCircles(input: ComputeInput): ComputeResult {
     durationCategory: category,
     durationVsMedianPct: vsMedianPct === null ? null : round1(vsMedianPct),
     circlesSource,
+    zonesOverall,
+  }
+}
+
+/* ── zones aggregation ────────────────────────────────────────────────── */
+
+/* Считает доли зон в полуинтервале [tStart, tEnd). null если zoneLog отсутствует.
+ * При наличии zoneLog, но нулевом числе попаданий — возвращает {pct: null × 3,
+ * samples: 0}: семантически отличает «у сессии нет зон вовсе» от «в этом круге
+ * монитор зоны не писал», важно для UI (приглушённая рамка vs fallback-текст). */
+export function aggregateZones(
+  zoneLog: ZoneSample[] | null, tStart: number, tEnd: number,
+): ZoneAgg {
+  if (!zoneLog) return null
+  let g = 0, y = 0, r = 0, samples = 0
+  for (const z of zoneLog) {
+    if (z.t_sec >= tStart && z.t_sec < tEnd) {
+      samples++
+      if (z.zone === 0) g++
+      else if (z.zone === 1) y++
+      else r++
+    }
+  }
+  if (samples === 0) {
+    return { green_pct: null, yellow_pct: null, red_pct: null, samples: 0 }
+  }
+  return {
+    green_pct:  round1(g / samples * 100),
+    yellow_pct: round1(y / samples * 100),
+    red_pct:    round1(r / samples * 100),
+    samples,
+  }
+}
+
+/* Берёт ZoneAgg и возвращает четвёрку полей в формате CircleAgg
+ * (null/null/null/null если zoneLog у сессии отсутствовал). */
+function zoneFieldsFor(agg: ZoneAgg): {
+  zone_green_pct: number | null
+  zone_yellow_pct: number | null
+  zone_red_pct: number | null
+  zone_samples: number | null
+} {
+  if (agg === null) {
+    return { zone_green_pct: null, zone_yellow_pct: null, zone_red_pct: null, zone_samples: null }
+  }
+  return {
+    zone_green_pct: agg.green_pct,
+    zone_yellow_pct: agg.yellow_pct,
+    zone_red_pct: agg.red_pct,
+    zone_samples: agg.samples,
   }
 }
 
 /* ── circle split ─────────────────────────────────────────────────────── */
 
-function splitIntoCircles(timeline: TimelineWindow[], durationSec: number, n: number): CircleAgg[] {
+function splitIntoCircles(
+  timeline: TimelineWindow[], durationSec: number, n: number,
+  zoneLog: ZoneSample[] | null,
+): CircleAgg[] {
   const circleLen = durationSec / n
   const out: CircleAgg[] = []
 
@@ -160,6 +241,7 @@ function splitIntoCircles(timeline: TimelineWindow[], durationSec: number, n: nu
       ab_index:  round2(median(aggSrc.map(w => w.ab))),
       tb_index:  round2(median(aggSrc.map(w => w.tb))),
       signal_pct: round2(signalPct),
+      ...zoneFieldsFor(aggregateZones(zoneLog, tStart, tEnd)),
     })
   }
   return out
@@ -206,6 +288,7 @@ function validMarkers(markers: CircleMarker[], durationSec: number): boolean {
 function splitByMarkers(
   timeline: TimelineWindow[], durationSec: number,
   circlesCount: number, markers: CircleMarker[],
+  zoneLog: ZoneSample[] | null,
 ): CircleAgg[] {
   const boundaries: Array<{ tStart: number; tEnd: number }> = []
   let prevT = 0
@@ -264,6 +347,7 @@ function splitByMarkers(
       ab_index:  round2(median(aggSrc.map(w => w.ab))),
       tb_index:  round2(median(aggSrc.map(w => w.tb))),
       signal_pct: round2(signalPct),
+      ...zoneFieldsFor(aggregateZones(zoneLog, tStart, tEnd)),
     }
   })
 }

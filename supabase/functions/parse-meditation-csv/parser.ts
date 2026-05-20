@@ -49,6 +49,15 @@ export type CircleMarker = {
   count: number              // сколько кругов закрылось этой меткой/серией
 }
 
+/* Замер «спидометра устойчивости» от внешнего монитора: одна классификация
+ * зоны на EEG-aggregate строку (~1 Гц). t_sec — секунды от firstTsMs (та же
+ * база, что timeline и circleMarkers). zone: 0=зелёная, 1=жёлтая, 2=красная.
+ * Невалидные/пустые значения колонки Zone парсер молча пропускает. */
+export type ZoneSample = {
+  t_sec: number
+  zone: 0 | 1 | 2
+}
+
 export type SessionAggregates = {
   startedAt: string          // ISO
   endedAt: string
@@ -86,6 +95,10 @@ export type SessionAggregates = {
   /* null = колонки Circle_Marker не было ИЛИ все её значения оказались невалидны.
    * В обоих случаях downstream работает как для телефонного Mind Monitor. */
   circleMarkers: CircleMarker[] | null
+
+  /* null = колонки Zone не было ИЛИ все её значения оказались невалидны.
+   * В обоих случаях UI «Светофор» покажет fallback-сообщение и не сломается. */
+  zoneLog: ZoneSample[] | null
 }
 
 export type ParseErrorCode = 'structure' | 'too_short' | 'headband_off'
@@ -129,8 +142,10 @@ export function parseMindMonitorCSV(text: string): SessionAggregates {
   }
 
   const colIdx = parseHeader(lines[0])
-  /* Опциональная колонка Circle_Marker от внешнего инструмента. -1 = не было. */
-  const circleMarkerIdx = lines[0].split(',').indexOf('Circle_Marker')
+  /* Опциональные колонки от внешнего инструмента. -1 = колонки не было. */
+  const headerFields = lines[0].split(',')
+  const circleMarkerIdx = headerFields.indexOf('Circle_Marker')
+  const zoneIdx = headerFields.indexOf('Zone')
 
   /* First pass: collect timestamps + EEG rows.
    * Mind Monitor writes HeadBandOn only on EEG-aggregate rows (raw-sample rows leave it empty),
@@ -144,6 +159,10 @@ export function parseMindMonitorCSV(text: string): SessionAggregates {
   /* Собираем метки кругов параллельно. Каждая метка получает t_sec
    * относительно firstTsMs — той же базы, что timeline и thirds. */
   const rawMarkers: Array<{ tsMs: number; count: number }> = []
+  /* Замеры зоны спидометра — тоже относительно firstTsMs. Пишем ТОЛЬКО
+   * на EEG-aggregate строках (там же, где Theta_TP9 непустой), как и
+   * договорились с монитором — см. ТЗ §43. */
+  const rawZones: Array<{ tsMs: number; zone: 0 | 1 | 2 }> = []
 
   for (let i = 1; i < lines.length; i++) {
     const fields = lines[i].split(',')
@@ -183,6 +202,21 @@ export function parseMindMonitorCSV(text: string): SessionAggregates {
     /* EEG-aggregate row: Theta_TP9 non-empty. Other rows skipped from analysis. */
     const thetaTP9raw = fields[colIdx.Theta_TP9]
     if (!thetaTP9raw) continue
+
+    /* Zone — опциональная колонка от внешнего монитора. Пишется ИМЕННО на
+     * EEG-aggregate строках, поэтому собираем здесь, после проверки на
+     * Theta_TP9. Принимаем строго '0' | '1' | '2'; всё остальное (пусто,
+     * текст, '5', '-1', дробные) молча пропускаем — строка просто не
+     * попадает в zoneLog (см. ТЗ §44-49 и §181 п.5). */
+    if (zoneIdx >= 0 && zoneIdx < fields.length) {
+      const raw = fields[zoneIdx]
+      if (raw && raw.length > 0) {
+        const trimmed = raw.trim()
+        if (trimmed === '0' || trimmed === '1' || trimmed === '2') {
+          rawZones.push({ tsMs, zone: parseInt(trimmed, 10) as 0 | 1 | 2 })
+        }
+      }
+    }
 
     const bands = readBands(fields, colIdx)
     if (!bands) continue
@@ -314,6 +348,15 @@ export function parseMindMonitorCSV(text: string): SessionAggregates {
       .sort((a, b) => a.t_sec - b.t_sec)
   }
 
+  /* Финализируем zoneLog. Сортировка стабилизирует порядок при равных tsMs
+   * (теоретически возможно у внешнего монитора, на практике — почти нет). */
+  let zoneLog: ZoneSample[] | null = null
+  if (rawZones.length > 0) {
+    zoneLog = rawZones
+      .map(z => ({ t_sec: round2((z.tsMs - firstTsMs!) / 1000), zone: z.zone }))
+      .sort((a, b) => a.t_sec - b.t_sec)
+  }
+
   return {
     startedAt: new Date(firstTsMs).toISOString(),
     endedAt: new Date(lastTsMs).toISOString(),
@@ -342,6 +385,7 @@ export function parseMindMonitorCSV(text: string): SessionAggregates {
     hrMedian: hrMedian_ !== null ? round1(hrMedian_) : null,
     timeline30s,
     circleMarkers,
+    zoneLog,
   }
 }
 

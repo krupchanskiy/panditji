@@ -68,12 +68,26 @@
         electrodes: { TP9: 'ok', AF7: 'ok', AF8: 'ok', TP10: 'ok' },
         headbandOnPct: 99.89, shift: null, deepeningReliable: true,
       },
-      perCircle: Array.from({length: 16}, (_, i) => ({
-        i: i + 1,
-        alpha: 38 + Math.sin(i / 2) * 5,
-        theta: 14 + i * 0.6,
-        beta: 12 - i * 0.2,
-      })),
+      perCircle: Array.from({length: 16}, (_, i) => {
+        /* Имитация прогресса: к концу сессии больше зелёной зоны.
+         * 2-й круг — «нет данных» (samples=0), чтобы видеть приглушённую рамку. */
+        if (i === 1) {
+          return { i: i + 1, alpha: 38, theta: 14.6, beta: 11.8,
+            zone: { green: null, yellow: null, red: null, samples: 0 } }
+        }
+        const t = i / 15
+        const green = Math.round((25 + t * 55) * 10) / 10
+        const red = Math.round((35 - t * 25) * 10) / 10
+        const yellow = Math.round((100 - green - red) * 10) / 10
+        return {
+          i: i + 1,
+          alpha: 38 + Math.sin(i / 2) * 5,
+          theta: 14 + i * 0.6,
+          beta: 12 - i * 0.2,
+          zone: { green, yellow, red, samples: 90 + i * 2 },
+        }
+      }),
+      zonesOverall: { green: 52.3, yellow: 27.1, red: 20.6 },
       compare: {
         deepening: {
           todayValue: 63.2, unit: '%',

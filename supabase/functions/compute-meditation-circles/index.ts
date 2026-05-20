@@ -74,7 +74,7 @@ Deno.serve(async (req) => {
       alpha_first_third, alpha_last_third, alpha_median_rel,
       delta_first_third, delta_last_third,
       hr_first_third, hr_last_third,
-      timeline_30s, circle_markers
+      timeline_30s, circle_markers, zone_log
     `)
     .eq('id', body.session_id)
     .eq('user_id', body.user_id)
@@ -110,6 +110,7 @@ Deno.serve(async (req) => {
     circlesCount: body.circles,
     recentRegularDurations,
     circleMarkers: session.circle_markers,
+    zoneLog: session.zone_log,
   })
 
   /* Tags depend on computed metrics. */
@@ -177,6 +178,11 @@ Deno.serve(async (req) => {
       interpretations: { main, calm, phases },
       interpretation_version: INTERPRETATION_VERSION,
       circles_source: result.circlesSource,
+      /* Зоны устойчивости по всей сессии (overall). null = у сессии нет
+       * zone_log (старый телефонный CSV или сессия до выкатки монитора). */
+      zone_green_pct: result.zonesOverall?.green_pct ?? null,
+      zone_yellow_pct: result.zonesOverall?.yellow_pct ?? null,
+      zone_red_pct: result.zonesOverall?.red_pct ?? null,
     })
     .eq('id', body.session_id)
     .eq('user_id', body.user_id)

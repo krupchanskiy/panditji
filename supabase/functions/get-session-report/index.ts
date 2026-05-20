@@ -66,7 +66,8 @@ Deno.serve(async (req) => {
       ab_index_median, beta_median_rel,
       deepening_pct, longest_calm_sec, longest_calm_at_sec, calm_periods_count,
       duration_category, duration_vs_median_pct,
-      auto_tags, interpretations
+      auto_tags, interpretations,
+      zone_green_pct, zone_yellow_pct, zone_red_pct
     `)
     .eq('id', sessionId)
     .maybeSingle()
@@ -76,7 +77,10 @@ Deno.serve(async (req) => {
   /* Circles. */
   const { data: circleRows, error: cErr } = await supabase
     .from('meditation_circles')
-    .select('circle_num, alpha_rel, theta_rel, beta_rel, ab_index')
+    .select(`
+      circle_num, alpha_rel, theta_rel, beta_rel, ab_index,
+      zone_green_pct, zone_yellow_pct, zone_red_pct, zone_samples
+    `)
     .eq('session_id', sessionId)
     .order('circle_num')
   if (cErr) return json({ error: 'db_error', message: cErr.message }, 500)

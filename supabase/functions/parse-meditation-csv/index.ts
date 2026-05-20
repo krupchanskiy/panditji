@@ -133,6 +133,7 @@ Deno.serve(async (req) => {
 
     timeline_30s: aggregates.timeline30s,
     circle_markers: aggregates.circleMarkers,
+    zone_log: aggregates.zoneLog,
 
     csv_storage_path: body.storage_path,
     csv_size_bytes: csvSizeBytes,

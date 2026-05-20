@@ -22,16 +22,25 @@ export const CHART_COLORS = {
   calmEmpty: 'oklch(0.93 0.012 235 / 0.85)',
 }
 
-/* ── main chart: bars / stream / lines ─────────────────────────────────── */
+/* ── main chart: zones / bars / stream ─────────────────────────────────── */
 
 const MAIN_CHART_PAD = { top: 8, right: 8, bottom: 22, left: 22 }
 const MAIN_CHART_DEFAULT = { width: 348, height: 200 }
 
-export function renderMainChart(perCircle, variant = 'bars', size = MAIN_CHART_DEFAULT) {
+/* Зоны «спидометра устойчивости» от внешнего монитора.
+ * Hex — часть единого визуального контракта между монитором и Panditji,
+ * см. ТЗ §138-140. Не перевожу в oklch специально. */
+const ZONE_COLORS = {
+  green:  '#5fae7d',
+  yellow: '#c8b06a',
+  red:    '#cc6f52',
+}
+
+export function renderMainChart(perCircle, variant = 'zones', size = MAIN_CHART_DEFAULT) {
   if (!perCircle || perCircle.length === 0) return emptyMessage('Нет данных по кругам', size)
   switch (variant) {
     case 'stream': return renderMainChartStream(perCircle, size)
-    case 'lines':  return renderMainChartLines(perCircle, size)
+    case 'zones':  return renderMainChartZones(perCircle, size)
     case 'bars':
     default:       return renderMainChartBars(perCircle, size)
   }
@@ -115,33 +124,91 @@ function renderMainChartStream(perCircle, size) {
   ` })
 }
 
-function renderMainChartLines(perCircle, size) {
+/* «Светофор»: один столбик на круг, нормированный на 100%.
+ * Снизу зелёная, в середине жёлтая, сверху красная. Если на круге не было
+ * валидных Zone-замеров — приглушённая пустая рамка вместо столбика (об
+ * этом семантическом отличии писали в плане). */
+function renderMainChartZones(perCircle, size) {
   const { width, height } = size
   const pad = MAIN_CHART_PAD
   const w = width - pad.left - pad.right
   const h = height - pad.top - pad.bottom
+
   const N = perCircle.length
+  const yScale = pct => pad.top + h - (pct / 100) * h
+  const groupWidth = w / N
+  const barWidth = Math.max(4, groupWidth * 0.6)
 
-  const maxBand = Math.max(60, ...perCircle.flatMap(c => [c.alpha, c.theta, c.beta]))
-  const yMax = Math.ceil(maxBand / 10) * 10
+  let bars = ''
+  perCircle.forEach((c, i) => {
+    const cx = pad.left + i * groupWidth + groupWidth / 2
+    const x = cx - barWidth / 2
+    const z = c.zone
 
-  const x = i => pad.left + (i / Math.max(1, N - 1)) * w
-  const y = v => pad.top + h - (v / yMax) * h
+    /* На круге нет ни одного валидного Zone-замера (samples = 0).
+     * Рисуем приглушённую контурную рамку 0..100%, чтобы было видно
+     * «вот круг, но данных нет», а не «100% какой-то зоны». */
+    if (!z || z.samples === 0) {
+      bars += `
+        <g>
+          <title>Круг ${c.i} · нет данных по зонам</title>
+          <rect x="${x.toFixed(1)}" y="${pad.top.toFixed(1)}" width="${barWidth.toFixed(1)}" height="${h.toFixed(1)}"
+                fill="none" stroke="oklch(0.78 0.012 235 / 0.55)" stroke-width="0.8" stroke-dasharray="2 3" rx="2"/>
+        </g>`
+      return
+    }
 
-  const buildLine = key => perCircle.map((c, i) =>
-    `${i === 0 ? 'M' : 'L'} ${x(i).toFixed(1)} ${y(c[key]).toFixed(1)}`).join(' ')
-  const buildDots = (key, color) => perCircle.map((c, i) =>
-    `<circle cx="${x(i).toFixed(1)}" cy="${y(c[key]).toFixed(1)}" r="2.2" fill="${color}"/>`).join('')
+    /* Безопасно: одно из трёх pct может быть округлено до целого %.
+     * Сегмент высоты 0 не рисуем — экономим узлы и убираем «прыщи». */
+    const g = z.green ?? 0, y = z.yellow ?? 0, r = z.red ?? 0
+    const hGreen = h * (g / 100)
+    const hYellow = h * (y / 100)
+    const hRed = h * (r / 100)
+
+    /* Координаты сегментов: верх красного у потолка, потом жёлтый, потом зелёный до пола. */
+    const yRed = pad.top
+    const yYellow = pad.top + hRed
+    const yGreen = pad.top + hRed + hYellow
+
+    const title = `Круг ${c.i} · зелёная ${fmt1(g)}% · жёлтая ${fmt1(y)}% · красная ${fmt1(r)}% · замеров: ${z.samples}`
+
+    bars += `<g><title>${escapeHtml(title)}</title>`
+    if (hRed > 0) {
+      bars += `<rect x="${x.toFixed(1)}" y="${yRed.toFixed(1)}" width="${barWidth.toFixed(1)}" height="${hRed.toFixed(1)}" fill="${ZONE_COLORS.red}" rx="${hYellow + hGreen > 0 ? 0 : 2}"/>`
+    }
+    if (hYellow > 0) {
+      bars += `<rect x="${x.toFixed(1)}" y="${yYellow.toFixed(1)}" width="${barWidth.toFixed(1)}" height="${hYellow.toFixed(1)}" fill="${ZONE_COLORS.yellow}"/>`
+    }
+    if (hGreen > 0) {
+      bars += `<rect x="${x.toFixed(1)}" y="${yGreen.toFixed(1)}" width="${barWidth.toFixed(1)}" height="${hGreen.toFixed(1)}" fill="${ZONE_COLORS.green}" rx="${hRed + hYellow > 0 ? 0 : 2}"/>`
+    }
+    /* Лёгкая внешняя обводка — даёт «стеклянный» вид как у карточек репо. */
+    bars += `<rect x="${x.toFixed(1)}" y="${pad.top.toFixed(1)}" width="${barWidth.toFixed(1)}" height="${h.toFixed(1)}"
+                   fill="none" stroke="rgba(255,255,255,.55)" stroke-width="0.5" rx="2"/>`
+    bars += `</g>`
+  })
 
   return wrapSvg({ ...size, content: `
-    ${gridLines(pad, w, h, yMax)}
-    <path d="${buildLine('beta')}" fill="none" stroke="${CHART_COLORS.beta}" stroke-width="1.3" stroke-dasharray="3 3"/>
-    <path d="${buildLine('alpha')}" fill="none" stroke="${CHART_COLORS.alpha}" stroke-width="1.5"/>
-    <path d="${buildLine('theta')}" fill="none" stroke="${CHART_COLORS.theta}" stroke-width="1.5"/>
-    ${buildDots('alpha', CHART_COLORS.alpha)}
-    ${buildDots('theta', CHART_COLORS.theta)}
+    ${gridLinesZones(pad, w, h)}
+    ${bars}
     ${xAxisTicks(perCircle, pad, w, h, height)}
   ` })
+}
+
+/* Сетка специально для «Светофора»: только три тика 0/50/100 — короче и
+ * читабельнее, чем 4-интервальная сетка band-чартов. */
+function gridLinesZones(pad, w, h) {
+  let out = ''
+  for (const pct of [0, 50, 100]) {
+    const y = pad.top + h - (pct / 100) * h
+    out += `<line x1="${pad.left}" y1="${y}" x2="${pad.left + w}" y2="${y}" stroke="${CHART_COLORS.grid}" stroke-width="0.5"/>`
+    out += `<text x="${pad.left - 4}" y="${y + 3}" text-anchor="end" font-size="8.5" font-family="ui-monospace,monospace" fill="${CHART_COLORS.axis}">${pct}</text>`
+  }
+  return out
+}
+
+function fmt1(v) {
+  return Number.isFinite(v) ? v.toFixed(1).replace('.', ',') : '0,0'
 }
 
 function gridLines(pad, w, h, yMax) {

@@ -68,7 +68,21 @@ export type SessionReport = {
     deepeningReliable: boolean | null
   }
 
-  perCircle: Array<{ i: number; alpha: number; theta: number; beta: number }> | null
+  perCircle: Array<{
+    i: number; alpha: number; theta: number; beta: number
+    /* Зоны устойчивости в этом круге.
+     * null = у сессии вообще нет zone_log (телефонный экспорт);
+     * samples = 0 при не-null объекте = в этом круге монитор зоны не писал. */
+    zone: {
+      green: number | null
+      yellow: number | null
+      red: number | null
+      samples: number
+    } | null
+  }> | null
+
+  /* Зоны устойчивости по всей сессии. null = у сессии нет zone_log. */
+  zonesOverall: { green: number; yellow: number; red: number } | null
 
   compare: {
     deepening: PerCircleCompare
@@ -125,6 +139,9 @@ export type SessionRow = {
   duration_vs_median_pct: number | null
   auto_tags: string[]
   interpretations: { main?: string; calm?: string | null; phases?: Phase[] } | null
+  zone_green_pct: number | null
+  zone_yellow_pct: number | null
+  zone_red_pct: number | null
 }
 
 export type CircleRow = {
@@ -133,6 +150,10 @@ export type CircleRow = {
   theta_rel: number
   beta_rel: number
   ab_index: number
+  zone_green_pct: number | null
+  zone_yellow_pct: number | null
+  zone_red_pct: number | null
+  zone_samples: number | null
 }
 
 export type LocationRow = {
@@ -171,11 +192,35 @@ export function buildSessionReport(
   const circlesConfirmed = s.circles !== null && circles.length > 0
   const N = circlesConfirmed ? s.circles! : 0
 
+  /* zone === null на круге = у сессии вообще нет zone_log (поле zone_samples
+   * на круге тогда тоже NULL). Иначе кладём числовой samples и тройку pct
+   * (внутри могут быть null если samples===0 — UI рисует приглушённую рамку). */
+  const sessionHasZones = s.zone_green_pct !== null
+    || s.zone_yellow_pct !== null
+    || s.zone_red_pct !== null
   const perCircle = circlesConfirmed
     ? circles
         .slice()
         .sort((a, b) => a.circle_num - b.circle_num)
-        .map(c => ({ i: c.circle_num, alpha: c.alpha_rel, theta: c.theta_rel, beta: c.beta_rel }))
+        .map(c => ({
+          i: c.circle_num,
+          alpha: c.alpha_rel,
+          theta: c.theta_rel,
+          beta: c.beta_rel,
+          zone: c.zone_samples === null
+            ? null
+            : {
+                green: c.zone_green_pct,
+                yellow: c.zone_yellow_pct,
+                red: c.zone_red_pct,
+                samples: c.zone_samples,
+              },
+        }))
+    : null
+
+  const zonesOverall = sessionHasZones && s.zone_green_pct !== null
+      && s.zone_yellow_pct !== null && s.zone_red_pct !== null
+    ? { green: s.zone_green_pct, yellow: s.zone_yellow_pct, red: s.zone_red_pct }
     : null
 
   const baseHidden = pickHiddenReason(s)
@@ -242,6 +287,7 @@ export function buildSessionReport(
     },
 
     perCircle,
+    zonesOverall,
     compare: { deepening, stability, beta },
 
     longestCalmSec: s.longest_calm_sec,
