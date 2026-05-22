@@ -144,6 +144,32 @@ function localDate(tz: string): string {
   }).format(new Date())
 }
 
+/* Возвращает таблицу-якорь дат с днями недели на сегодня + 13 следующих дней.
+ * Нужна потому что LLM плохо считает день недели по дате — Sonnet регулярно
+ * ошибается на 1 день, отчего «эта пятница» становится субботой и т.д. Со
+ * списком в промпте Claude не считает, а просто выбирает строку. */
+const RU_WEEKDAYS = [
+  'воскресенье', 'понедельник', 'вторник', 'среда', 'четверг', 'пятница', 'суббота',
+]
+function buildDateAnchors(tz: string): string {
+  const todayStr = localDate(tz)
+  const [y, m, d] = todayStr.split('-').map(Number)
+  const base = new Date(Date.UTC(y, m - 1, d))
+  const lines: string[] = []
+  for (let i = 0; i < 14; i++) {
+    const dt = new Date(base.getTime() + i * 86400000)
+    const iso = dt.toISOString().slice(0, 10)
+    const wd = RU_WEEKDAYS[dt.getUTCDay()]
+    let prefix: string
+    if (i === 0) prefix = 'сегодня'
+    else if (i === 1) prefix = 'завтра'
+    else if (i === 2) prefix = 'послезавтра'
+    else prefix = `через ${i} дн.`
+    lines.push(`- ${iso} — ${wd} (${prefix})`)
+  }
+  return lines.join('\n')
+}
+
 async function routeMessage(text: string, tz: string, userShortName: string): Promise<RoutedMessage> {
   const apiKey = Deno.env.get('ANTHROPIC_API_KEY')
   if (!apiKey) {
@@ -151,6 +177,7 @@ async function routeMessage(text: string, tz: string, userShortName: string): Pr
   }
   const today = localDate(tz)
   const nowUtc = new Date().toISOString()
+  const anchors = buildDateAnchors(tz)
 
   const sysPrompt = `Ты Пандитджи — личный ассистент в Telegram-боте. Обращаешься к пользователю «${userShortName}». Получаешь сообщение по-русски и сам решаешь, что это: задача, встреча, или вопрос/диалог.
 
@@ -158,6 +185,17 @@ async function routeMessage(text: string, tz: string, userShortName: string): Pr
 - Сегодняшняя локальная дата пользователя: ${today}
 - Часовая зона: ${tz}
 - Сейчас (UTC): ${nowUtc}
+
+КАЛЕНДАРЬ-ЯКОРЯ (используй ТОЛЬКО эти даты, ничего не вычисляй сам)
+${anchors}
+
+Как пользоваться якорями:
+- «завтра» → строка «завтра» в якорях.
+- «эта/в эту/в эту ближайшую <день недели>» → ПЕРВАЯ сверху строка с этим днём недели.
+- «следующий/в следующий <день недели>» → ВТОРАЯ сверху строка с этим днём недели.
+- «в пятницу/в среду» без уточнения → ПЕРВАЯ сверху строка с этим днём недели.
+- Если день недели сегодня и пользователь сказал «в этот <тот же день>» — это значит на следующей неделе.
+Не считай день недели по дате сам — бери из таблицы.
 
 ОПРЕДЕЛЕНИЕ INTENT
 - "create_task" — пользователь хочет добавить дело: «купи молоко», «не забыть позвонить Антону», «напомни написать Ивану», «надо забрать билет». Без жёсткой привязки времени.
